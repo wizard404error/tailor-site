@@ -9,6 +9,7 @@ import {
   ChevronRight,
   AlertTriangle,
   Home,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,11 @@ import { ProductCard } from '@/components/store/product-card';
 import { useNavigationStore, useCartStore } from '@/lib/store';
 import { toast } from 'sonner';
 
+interface ColorOption {
+  name: string;
+  hex: string;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -26,6 +32,7 @@ interface Product {
   price: number;
   stock: number;
   sizes: string[];
+  colors: ColorOption[];
   images: string[];
   category?: { id: string; name: string; slug: string };
 }
@@ -37,6 +44,7 @@ interface RelatedProduct {
   price: number;
   stock: number;
   sizes: string[];
+  colors?: ColorOption[];
   images: string[];
   category?: { name: string; slug: string };
 }
@@ -49,6 +57,7 @@ export function ProductDetailView() {
   const [loadedId, setLoadedId] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<ColorOption | null>(null);
   const [quantity, setQuantity] = useState(1);
 
   const loading = loadedId !== pageParams.id;
@@ -66,6 +75,9 @@ export function ProductDetailView() {
           setProduct(p);
           if (p.sizes && p.sizes.length > 0) {
             setSelectedSize(p.sizes[0]);
+          }
+          if (p.colors && p.colors.length > 0) {
+            setSelectedColor(p.colors[0]);
           }
           // Fetch related products
           if (p.category?.id) {
@@ -102,6 +114,10 @@ export function ProductDetailView() {
       toast.error('Please select a size');
       return;
     }
+    if (product.colors.length > 0 && !selectedColor) {
+      toast.error('Please select a color');
+      return;
+    }
     addItem({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       itemType: 'product',
@@ -110,6 +126,8 @@ export function ProductDetailView() {
       price: product.price,
       quantity,
       size: selectedSize,
+      color: selectedColor?.name,
+      colorHex: selectedColor?.hex,
       image:
         product.images && product.images.length > 0
           ? product.images[0]
@@ -153,6 +171,7 @@ export function ProductDetailView() {
   const images = product.images && product.images.length > 0
     ? product.images
     : ['/placeholder-product.jpg'];
+  const colors = product.colors || [];
 
   return (
     <div className="min-h-screen">
@@ -296,6 +315,51 @@ export function ProductDetailView() {
                 <p className="text-muted-foreground leading-relaxed">
                   {product.description}
                 </p>
+              </div>
+            )}
+
+            {/* Color Selector */}
+            {colors.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-sm font-medium text-foreground">Color</h3>
+                  {selectedColor && (
+                    <span className="text-sm text-muted-foreground">
+                      — {selectedColor.name}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {colors.map((color) => {
+                    const isSelected = selectedColor?.name === color.name;
+                    const isLightColor = ['#FFFFFF', '#FFFFF0', '#FDF8F5', '#F9C4D2', '#F5E6D3'].includes(color.hex.toUpperCase()) ||
+                      color.hex.toUpperCase() === '#FDF8F5';
+                    return (
+                      <button
+                        key={color.name}
+                        onClick={() => setSelectedColor(color)}
+                        className={`group relative h-10 w-10 rounded-full border-2 transition-all hover:scale-110 ${
+                          isSelected
+                            ? 'border-accent shadow-md ring-2 ring-accent/30 ring-offset-2 ring-offset-background'
+                            : 'border-border hover:border-accent/50'
+                        }`}
+                        style={{ backgroundColor: color.hex }}
+                        title={color.name}
+                      >
+                        {isLightColor && (
+                          <span className="absolute inset-0 rounded-full border border-border/30" />
+                        )}
+                        {isSelected && (
+                          <span className={`absolute inset-0 flex items-center justify-center ${
+                            isLightColor ? 'text-foreground' : 'text-white'
+                          }`}>
+                            <Check className="h-4 w-4 drop-shadow-sm" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

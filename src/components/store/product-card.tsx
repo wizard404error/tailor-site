@@ -7,6 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigationStore, useCartStore } from '@/lib/store';
 import { toast } from 'sonner';
 
+interface ColorOption {
+  name: string;
+  hex: string;
+}
+
 interface ProductCardProps {
   product: {
     id: string;
@@ -15,6 +20,7 @@ interface ProductCardProps {
     price: number;
     stock: number;
     sizes: string[];
+    colors?: ColorOption[];
     images: string[];
     category?: {
       name: string;
@@ -32,8 +38,11 @@ export function ProductCard({ product }: ProductCardProps) {
       ? product.images[0]
       : '/placeholder-product.jpg';
 
+  const colors = product.colors || [];
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
+    const firstColor = colors.length > 0 ? colors[0] : null;
     addItem({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       itemType: 'product',
@@ -42,6 +51,8 @@ export function ProductCard({ product }: ProductCardProps) {
       price: product.price,
       quantity: 1,
       size: product.sizes?.[0],
+      color: firstColor?.name,
+      colorHex: firstColor?.hex,
       image: imageUrl,
     });
     toast.success(`${product.name} added to cart`);
@@ -123,6 +134,25 @@ export function ProductCard({ product }: ProductCardProps) {
               ${product.price.toFixed(2)}
             </span>
           </div>
+
+          {/* Color Swatches */}
+          {colors.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              {colors.slice(0, 6).map((color, index) => (
+                <span
+                  key={index}
+                  className="inline-block h-4 w-4 rounded-full border border-border/50 shadow-sm"
+                  style={{ backgroundColor: color.hex }}
+                  title={color.name}
+                />
+              ))}
+              {colors.length > 6 && (
+                <span className="text-[10px] text-muted-foreground ml-0.5">
+                  +{colors.length - 6}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Size Badges */}
           {product.sizes && product.sizes.length > 0 && (

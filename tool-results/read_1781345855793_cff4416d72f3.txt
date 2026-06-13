@@ -1,0 +1,767 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { Plus, Pencil, Trash2, Loader2, ImageOff, X } from 'lucide-react'
+     6→import { toast } from 'sonner'
+     7→
+     8→import { useAuthStore } from '@/lib/store'
+     9→import { Button } from '@/components/ui/button'
+    10→import { Input } from '@/components/ui/input'
+    11→import { Textarea } from '@/components/ui/textarea'
+    12→import { Label } from '@/components/ui/label'
+    13→import { Switch } from '@/components/ui/switch'
+    14→import { Badge } from '@/components/ui/badge'
+    15→import { Skeleton } from '@/components/ui/skeleton'
+    16→import {
+    17→  Table,
+    18→  TableBody,
+    19→  TableCell,
+    20→  TableHead,
+    21→  TableHeader,
+    22→  TableRow,
+    23→} from '@/components/ui/table'
+    24→import {
+    25→  Dialog,
+    26→  DialogContent,
+    27→  DialogDescription,
+    28→  DialogFooter,
+    29→  DialogHeader,
+    30→  DialogTitle,
+    31→} from '@/components/ui/dialog'
+    32→import {
+    33→  AlertDialog,
+    34→  AlertDialogAction,
+    35→  AlertDialogCancel,
+    36→  AlertDialogContent,
+    37→  AlertDialogDescription,
+    38→  AlertDialogFooter,
+    39→  AlertDialogHeader,
+    40→  AlertDialogTitle,
+    41→} from '@/components/ui/alert-dialog'
+    42→import {
+    43→  Select,
+    44→  SelectContent,
+    45→  SelectItem,
+    46→  SelectTrigger,
+    47→  SelectValue,
+    48→} from '@/components/ui/select'
+    49→import { Checkbox } from '@/components/ui/checkbox'
+    50→
+    51→// ─── Types ────────────────────────────────────────────────────────────────────
+    52→
+    53→interface Category {
+    54→  id: string
+    55→  name: string
+    56→  slug: string
+    57→}
+    58→
+    59→interface ColorOption {
+    60→  name: string
+    61→  hex: string
+    62→}
+    63→
+    64→interface Product {
+    65→  id: string
+    66→  name: string
+    67→  slug: string
+    68→  description: string | null
+    69→  price: number
+    70→  stock: number
+    71→  sizes: string[]
+    72→  colors: ColorOption[]
+    73→  images: string[]
+    74→  isActive: boolean
+    75→  categoryId: string | null
+    76→  category: Category | null
+    77→  createdAt: string
+    78→  updatedAt: string
+    79→}
+    80→
+    81→interface ProductFormData {
+    82→  name: string
+    83→  slug: string
+    84→  description: string
+    85→  price: string
+    86→  stock: string
+    87→  sizes: string[]
+    88→  colors: ColorOption[]
+    89→  categoryId: string
+    90→  images: string
+    91→  isActive: boolean
+    92→}
+    93→
+    94→const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL']
+    95→
+    96→const PRESET_COLORS: ColorOption[] = [
+    97→  { name: 'Black', hex: '#000000' },
+    98→  { name: 'White', hex: '#FFFFFF' },
+    99→  { name: 'Red', hex: '#DC2626' },
+   100→  { name: 'Burgundy', hex: '#7F1D1D' },
+   101→  { name: 'Navy', hex: '#1E3A5F' },
+   102→  { name: 'Royal Blue', hex: '#2563EB' },
+   103→  { name: 'Forest Green', hex: '#166534' },
+   104→  { name: 'Sage', hex: '#6B8E6B' },
+   105→  { name: 'Blush Pink', hex: '#F9C4D2' },
+   106→  { name: 'Rose', hex: '#E11D48' },
+   107→  { name: 'Dusty Rose', hex: '#B76E79' },
+   108→  { name: 'Mauve', hex: '#9C6B8E' },
+   109→  { name: 'Lavender', hex: '#A78BFA' },
+   110→  { name: 'Ivory', hex: '#FFFFF0' },
+   111→  { name: 'Cream', hex: '#FDF8F5' },
+   112→  { name: 'Beige', hex: '#D4B896' },
+   113→  { name: 'Camel', hex: '#C19A6B' },
+   114→  { name: 'Gold', hex: '#D4AF37' },
+   115→  { name: 'Silver', hex: '#C0C0C0' },
+   116→  { name: 'Charcoal', hex: '#36454F' },
+   117→  { name: 'Olive', hex: '#808000' },
+   118→  { name: 'Coral', hex: '#FF7F50' },
+   119→  { name: 'Terracotta', hex: '#CC5500' },
+   120→  { name: 'Plum', hex: '#8E4585' },
+   121→]
+   122→
+   123→const emptyForm: ProductFormData = {
+   124→  name: '',
+   125→  slug: '',
+   126→  description: '',
+   127→  price: '',
+   128→  stock: '',
+   129→  sizes: [],
+   130→  colors: [],
+   131→  categoryId: '',
+   132→  images: '',
+   133→  isActive: true,
+   134→}
+   135→
+   136→// ─── Component ────────────────────────────────────────────────────────────────
+   137→
+   138→export function AdminProductsView() {
+   139→  const { isAdmin } = useAuthStore()
+   140→  const [products, setProducts] = useState<Product[]>([])
+   141→  const [categories, setCategories] = useState<Category[]>([])
+   142→  const [loading, setLoading] = useState(true)
+   143→  const [dialogOpen, setDialogOpen] = useState(false)
+   144→  const [deleteOpen, setDeleteOpen] = useState(false)
+   145→  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+   146→  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
+   147→  const [saving, setSaving] = useState(false)
+   148→  const [form, setForm] = useState<ProductFormData>(emptyForm)
+   149→  const [newColorName, setNewColorName] = useState('')
+   150→  const [newColorHex, setNewColorHex] = useState('#000000')
+   151→  const [showCustomColor, setShowCustomColor] = useState(false)
+   152→
+   153→  const fetchProducts = useCallback(async () => {
+   154→    try {
+   155→      setLoading(true)
+   156→      const res = await fetch('/api/products')
+   157→      if (!res.ok) throw new Error('Failed to fetch products')
+   158→      const data = await res.json()
+   159→      setProducts(data.products || data || [])
+   160→    } catch {
+   161→      toast.error('Failed to load products')
+   162→    } finally {
+   163→      setLoading(false)
+   164→    }
+   165→  }, [])
+   166→
+   167→  const fetchCategories = useCallback(async () => {
+   168→    try {
+   169→      const res = await fetch('/api/categories')
+   170→      if (!res.ok) throw new Error('Failed to fetch categories')
+   171→      const data = await res.json()
+   172→      setCategories(data.categories || data || [])
+   173→    } catch {
+   174→      toast.error('Failed to load categories')
+   175→    }
+   176→  }, [])
+   177→
+   178→  useEffect(() => {
+   179→    fetchProducts()
+   180→    fetchCategories()
+   181→  }, [fetchProducts, fetchCategories])
+   182→
+   183→  const generateSlug = (name: string) =>
+   184→    name
+   185→      .toLowerCase()
+   186→      .replace(/[^a-z0-9]+/g, '-')
+   187→      .replace(/^-|-$/g, '')
+   188→
+   189→  const openAddDialog = () => {
+   190→    setEditingProduct(null)
+   191→    setForm(emptyForm)
+   192→    setShowCustomColor(false)
+   193→    setDialogOpen(true)
+   194→  }
+   195→
+   196→  const openEditDialog = (product: Product) => {
+   197→    setEditingProduct(product)
+   198→    setForm({
+   199→      name: product.name,
+   200→      slug: product.slug,
+   201→      description: product.description || '',
+   202→      price: product.price.toString(),
+   203→      stock: product.stock.toString(),
+   204→      sizes: product.sizes || [],
+   205→      colors: product.colors || [],
+   206→      categoryId: product.categoryId || '',
+   207→      images: (product.images || []).join(', '),
+   208→      isActive: product.isActive,
+   209→    })
+   210→    setShowCustomColor(false)
+   211→    setDialogOpen(true)
+   212→  }
+   213→
+   214→  const addPresetColor = (color: ColorOption) => {
+   215→    if (form.colors.some(c => c.name.toLowerCase() === color.name.toLowerCase())) {
+   216→      toast.error(`Color "${color.name}" already added`)
+   217→      return
+   218→    }
+   219→    setForm({ ...form, colors: [...form.colors, color] })
+   220→  }
+   221→
+   222→  const addCustomColor = () => {
+   223→    if (!newColorName.trim()) {
+   224→      toast.error('Please enter a color name')
+   225→      return
+   226→    }
+   227→    if (form.colors.some(c => c.name.toLowerCase() === newColorName.toLowerCase())) {
+   228→      toast.error(`Color "${newColorName}" already added`)
+   229→      return
+   230→    }
+   231→    setForm({
+   232→      ...form,
+   233→      colors: [...form.colors, { name: newColorName.trim(), hex: newColorHex }],
+   234→    })
+   235→    setNewColorName('')
+   236→    setNewColorHex('#000000')
+   237→    setShowCustomColor(false)
+   238→  }
+   239→
+   240→  const removeColor = (index: number) => {
+   241→    setForm({ ...form, colors: form.colors.filter((_, i) => i !== index) })
+   242→  }
+   243→
+   244→  const handleSubmit = async () => {
+   245→    if (!form.name || !form.price) {
+   246→      toast.error('Name and price are required')
+   247→      return
+   248→    }
+   249→
+   250→    setSaving(true)
+   251→    try {
+   252→      const payload = {
+   253→        ...(editingProduct ? { id: editingProduct.id } : {}),
+   254→        name: form.name,
+   255→        slug: form.slug || generateSlug(form.name),
+   256→        description: form.description || null,
+   257→        price: parseFloat(form.price),
+   258→        stock: parseInt(form.stock) || 0,
+   259→        sizes: form.sizes,
+   260→        colors: form.colors,
+   261→        categoryId: form.categoryId || null,
+   262→        images: form.images
+   263→          .split(',')
+   264→          .map((u) => u.trim())
+   265→          .filter(Boolean),
+   266→        isActive: form.isActive,
+   267→      }
+   268→
+   269→      const res = await fetch(
+   270→        editingProduct ? '/api/admin/products' : '/api/admin/products',
+   271→        {
+   272→          method: editingProduct ? 'PATCH' : 'POST',
+   273→          headers: { 'Content-Type': 'application/json' },
+   274→          body: JSON.stringify(payload),
+   275→        }
+   276→      )
+   277→
+   278→      if (!res.ok) {
+   279→        const err = await res.json()
+   280→        throw new Error(err.error || 'Failed to save product')
+   281→      }
+   282→
+   283→      toast.success(
+   284→        editingProduct ? 'Product updated successfully' : 'Product created successfully'
+   285→      )
+   286→      setDialogOpen(false)
+   287→      fetchProducts()
+   288→    } catch (err) {
+   289→      toast.error(err instanceof Error ? err.message : 'Failed to save product')
+   290→    } finally {
+   291→      setSaving(false)
+   292→    }
+   293→  }
+   294→
+   295→  const handleToggleActive = async (product: Product) => {
+   296→    try {
+   297→      const res = await fetch('/api/admin/products', {
+   298→        method: 'PATCH',
+   299→        headers: { 'Content-Type': 'application/json' },
+   300→        body: JSON.stringify({ id: product.id, isActive: !product.isActive }),
+   301→      })
+   302→      if (!res.ok) throw new Error('Failed to update product')
+   303→      toast.success(`Product ${!product.isActive ? 'activated' : 'deactivated'}`)
+   304→      fetchProducts()
+   305→    } catch {
+   306→      toast.error('Failed to update product')
+   307→    }
+   308→  }
+   309→
+   310→  const handleDelete = async () => {
+   311→    if (!deletingProduct) return
+   312→    try {
+   313→      const res = await fetch('/api/admin/products', {
+   314→        method: 'PATCH',
+   315→        headers: { 'Content-Type': 'application/json' },
+   316→        body: JSON.stringify({ id: deletingProduct.id, isActive: false }),
+   317→      })
+   318→      if (!res.ok) throw new Error('Failed to delete product')
+   319→      toast.success('Product deactivated successfully')
+   320→      setDeleteOpen(false)
+   321→      setDeletingProduct(null)
+   322→      fetchProducts()
+   323→    } catch {
+   324→      toast.error('Failed to delete product')
+   325→    }
+   326→  }
+   327→
+   328→  if (!isAdmin) {
+   329→    return (
+   330→      <div className="flex items-center justify-center min-h-[60vh]">
+   331→        <div className="text-center space-y-4">
+   332→          <h2 className="text-2xl font-heading text-primary">Access Denied</h2>
+   333→          <p className="text-muted-foreground">
+   334→            You do not have permission to view this page.
+   335→          </p>
+   336→        </div>
+   337→      </div>
+   338→    )
+   339→  }
+   340→
+   341→  return (
+   342→    <div className="container mx-auto px-4 py-8 max-w-7xl">
+   343→      <motion.div
+   344→        initial={{ opacity: 0, y: 20 }}
+   345→        animate={{ opacity: 1, y: 0 }}
+   346→        transition={{ duration: 0.4 }}
+   347→      >
+   348→        {/* Header */}
+   349→        <div className="flex items-center justify-between mb-8">
+   350→          <h1 className="text-3xl font-heading text-primary">Products</h1>
+   351→          <Button onClick={openAddDialog} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+   352→            <Plus className="w-4 h-4 mr-2" />
+   353→            Add Product
+   354→          </Button>
+   355→        </div>
+   356→
+   357→        {/* Table */}
+   358→        <div className="rounded-lg border bg-card overflow-hidden">
+   359→          {loading ? (
+   360→            <div className="p-6 space-y-4">
+   361→              {Array.from({ length: 5 }).map((_, i) => (
+   362→                <Skeleton key={i} className="h-12 w-full" />
+   363→              ))}
+   364→            </div>
+   365→          ) : products.length === 0 ? (
+   366→            <div className="p-12 text-center text-muted-foreground">
+   367→              No products found. Click &quot;Add Product&quot; to create one.
+   368→            </div>
+   369→          ) : (
+   370→            <div className="overflow-x-auto">
+   371→              <Table>
+   372→                <TableHeader>
+   373→                  <TableRow>
+   374→                    <TableHead>Image</TableHead>
+   375→                    <TableHead>Name</TableHead>
+   376→                    <TableHead>Category</TableHead>
+   377→                    <TableHead>Price</TableHead>
+   378→                    <TableHead>Stock</TableHead>
+   379→                    <TableHead>Sizes</TableHead>
+   380→                    <TableHead>Colors</TableHead>
+   381→                    <TableHead>Active</TableHead>
+   382→                    <TableHead>Actions</TableHead>
+   383→                  </TableRow>
+   384→                </TableHeader>
+   385→                <TableBody>
+   386→                  {products.map((product) => (
+   387→                    <TableRow key={product.id}>
+   388→                      <TableCell>
+   389→                        {product.images && product.images.length > 0 ? (
+   390→                          <img
+   391→                            src={product.images[0]}
+   392→                            alt={product.name}
+   393→                            className="w-10 h-10 rounded object-cover"
+   394→                          />
+   395→                        ) : (
+   396→                          <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
+   397→                            <ImageOff className="w-4 h-4 text-muted-foreground" />
+   398→                          </div>
+   399→                        )}
+   400→                      </TableCell>
+   401→                      <TableCell className="font-medium">{product.name}</TableCell>
+   402→                      <TableCell>
+   403→                        {product.category ? (
+   404→                          <Badge variant="secondary">{product.category.name}</Badge>
+   405→                        ) : (
+   406→                          <span className="text-muted-foreground">—</span>
+   407→                        )}
+   408→                      </TableCell>
+   409→                      <TableCell className="text-accent font-semibold">
+   410→                        ${product.price.toFixed(2)}
+   411→                      </TableCell>
+   412→                      <TableCell>
+   413→                        <Badge variant={product.stock > 0 ? 'default' : 'destructive'}>
+   414→                          {product.stock}
+   415→                        </Badge>
+   416→                      </TableCell>
+   417→                      <TableCell>
+   418→                        <div className="flex gap-1 flex-wrap">
+   419→                          {(product.sizes || []).map((size) => (
+   420→                            <Badge key={size} variant="outline" className="text-xs">
+   421→                              {size}
+   422→                            </Badge>
+   423→                          ))}
+   424→                        </div>
+   425→                      </TableCell>
+   426→                      <TableCell>
+   427→                        <div className="flex gap-1 flex-wrap items-center">
+   428→                          {(product.colors || []).length > 0 ? (
+   429→                            product.colors.map((color, i) => (
+   430→                              <div
+   431→                                key={i}
+   432→                                className="flex items-center gap-1 group"
+   433→                                title={color.name}
+   434→                              >
+   435→                                <span
+   436→                                  className="inline-block h-5 w-5 rounded-full border border-border shadow-sm"
+   437→                                  style={{ backgroundColor: color.hex }}
+   438→                                />
+   439→                              </div>
+   440→                            ))
+   441→                          ) : (
+   442→                            <span className="text-xs text-muted-foreground">—</span>
+   443→                          )}
+   444→                        </div>
+   445→                      </TableCell>
+   446→                      <TableCell>
+   447→                        <Switch
+   448→                          checked={product.isActive}
+   449→                          onCheckedChange={() => handleToggleActive(product)}
+   450→                        />
+   451→                      </TableCell>
+   452→                      <TableCell>
+   453→                        <div className="flex items-center gap-1">
+   454→                          <Button
+   455→                            variant="ghost"
+   456→                            size="sm"
+   457→                            onClick={() => openEditDialog(product)}
+   458→                          >
+   459→                            <Pencil className="w-4 h-4" />
+   460→                          </Button>
+   461→                          <Button
+   462→                            variant="ghost"
+   463→                            size="sm"
+   464→                            onClick={() => {
+   465→                              setDeletingProduct(product)
+   466→                              setDeleteOpen(true)
+   467→                            }}
+   468→                          >
+   469→                            <Trash2 className="w-4 h-4 text-destructive" />
+   470→                          </Button>
+   471→                        </div>
+   472→                      </TableCell>
+   473→                    </TableRow>
+   474→                  ))}
+   475→                </TableBody>
+   476→              </Table>
+   477→            </div>
+   478→          )}
+   479→        </div>
+   480→      </motion.div>
+   481→
+   482→      {/* Add/Edit Dialog */}
+   483→      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+   484→        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+   485→          <DialogHeader>
+   486→            <DialogTitle className="font-heading text-primary">
+   487→              {editingProduct ? 'Edit Product' : 'Add Product'}
+   488→            </DialogTitle>
+   489→            <DialogDescription>
+   490→              {editingProduct
+   491→                ? 'Update product details below.'
+   492→                : 'Fill in the details to create a new product.'}
+   493→            </DialogDescription>
+   494→          </DialogHeader>
+   495→
+   496→          <div className="grid gap-4 py-4">
+   497→            <div className="grid grid-cols-2 gap-4">
+   498→              <div className="space-y-2">
+   499→                <Label htmlFor="prod-name">Name *</Label>
+   500→                <Input
+   501→                  id="prod-name"
+   502→                  value={form.name}
+   503→                  onChange={(e) => {
+   504→                    setForm({ ...form, name: e.target.value, slug: generateSlug(e.target.value) })
+   505→                  }}
+   506→                  placeholder="Product name"
+   507→                />
+   508→              </div>
+   509→              <div className="space-y-2">
+   510→                <Label htmlFor="prod-slug">Slug</Label>
+   511→                <Input
+   512→                  id="prod-slug"
+   513→                  value={form.slug}
+   514→                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+   515→                  placeholder="product-slug"
+   516→                />
+   517→              </div>
+   518→            </div>
+   519→
+   520→            <div className="space-y-2">
+   521→              <Label htmlFor="prod-desc">Description</Label>
+   522→              <Textarea
+   523→                id="prod-desc"
+   524→                value={form.description}
+   525→                onChange={(e) => setForm({ ...form, description: e.target.value })}
+   526→                placeholder="Product description"
+   527→                rows={3}
+   528→              />
+   529→            </div>
+   530→
+   531→            <div className="grid grid-cols-2 gap-4">
+   532→              <div className="space-y-2">
+   533→                <Label htmlFor="prod-price">Price *</Label>
+   534→                <Input
+   535→                  id="prod-price"
+   536→                  type="number"
+   537→                  step="0.01"
+   538→                  value={form.price}
+   539→                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+   540→                  placeholder="0.00"
+   541→                />
+   542→              </div>
+   543→              <div className="space-y-2">
+   544→                <Label htmlFor="prod-stock">Stock</Label>
+   545→                <Input
+   546→                  id="prod-stock"
+   547→                  type="number"
+   548→                  value={form.stock}
+   549→                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
+   550→                  placeholder="0"
+   551→                />
+   552→              </div>
+   553→            </div>
+   554→
+   555→            {/* Sizes */}
+   556→            <div className="space-y-2">
+   557→              <Label>Sizes</Label>
+   558→              <div className="flex gap-3 flex-wrap">
+   559→                {ALL_SIZES.map((size) => (
+   560→                  <div key={size} className="flex items-center gap-2">
+   561→                    <Checkbox
+   562→                      id={`size-${size}`}
+   563→                      checked={form.sizes.includes(size)}
+   564→                      onCheckedChange={(checked) => {
+   565→                        if (checked) {
+   566→                          setForm({ ...form, sizes: [...form.sizes, size] })
+   567→                        } else {
+   568→                          setForm({ ...form, sizes: form.sizes.filter((s) => s !== size) })
+   569→                        }
+   570→                      }}
+   571→                    />
+   572→                    <Label htmlFor={`size-${size}`} className="text-sm font-normal cursor-pointer">
+   573→                      {size}
+   574→                    </Label>
+   575→                  </div>
+   576→                ))}
+   577→              </div>
+   578→            </div>
+   579→
+   580→            {/* Colors */}
+   581→            <div className="space-y-3">
+   582→              <Label>Colors</Label>
+   583→
+   584→              {/* Selected Colors */}
+   585→              {form.colors.length > 0 && (
+   586→                <div className="flex flex-wrap gap-2">
+   587→                  {form.colors.map((color, index) => (
+   588→                    <div
+   589→                      key={index}
+   590→                      className="flex items-center gap-1.5 bg-secondary rounded-full pl-1.5 pr-2.5 py-1 group"
+   591→                    >
+   592→                      <span
+   593→                        className="inline-block h-5 w-5 rounded-full border border-border/50 shadow-sm shrink-0"
+   594→                        style={{ backgroundColor: color.hex }}
+   595→                      />
+   596→                      <span className="text-xs font-medium text-foreground">{color.name}</span>
+   597→                      <button
+   598→                        type="button"
+   599→                        onClick={() => removeColor(index)}
+   600→                        className="ml-0.5 h-4 w-4 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+   601→                      >
+   602→                        <X className="h-3 w-3" />
+   603→                      </button>
+   604→                    </div>
+   605→                  ))}
+   606→                </div>
+   607→              )}
+   608→
+   609→              {/* Preset Color Swatches */}
+   610→              <div className="space-y-2">
+   611→                <p className="text-xs text-muted-foreground">Click to add a color:</p>
+   612→                <div className="flex flex-wrap gap-1.5">
+   613→                  {PRESET_COLORS.filter(
+   614→                    (pc) => !form.colors.some((fc) => fc.name.toLowerCase() === pc.name.toLowerCase())
+   615→                  ).map((color) => (
+   616→                    <button
+   617→                      key={color.name}
+   618→                      type="button"
+   619→                      onClick={() => addPresetColor(color)}
+   620→                      title={color.name}
+   621→                      className="group relative h-7 w-7 rounded-full border-2 border-transparent hover:border-accent transition-all hover:scale-110 shadow-sm"
+   622→                      style={{ backgroundColor: color.hex }}
+   623→                    >
+   624→                      {color.hex === '#FFFFFF' || color.hex === '#FFFFF0' || color.hex === '#FDF8F5' ? (
+   625→                        <span className="absolute inset-0 rounded-full border border-border/50" />
+   626→                      ) : null}
+   627→                    </button>
+   628→                  ))}
+   629→                </div>
+   630→              </div>
+   631→
+   632→              {/* Custom Color */}
+   633→              <div>
+   634→                {!showCustomColor ? (
+   635→                  <Button
+   636→                    type="button"
+   637→                    variant="outline"
+   638→                    size="sm"
+   639→                    onClick={() => setShowCustomColor(true)}
+   640→                    className="text-xs"
+   641→                  >
+   642→                    <Plus className="h-3 w-3 mr-1" />
+   643→                    Custom Color
+   644→                  </Button>
+   645→                ) : (
+   646→                  <div className="flex items-end gap-2 p-3 bg-secondary/50 rounded-lg">
+   647→                    <div className="space-y-1">
+   648→                      <Label className="text-xs">Name</Label>
+   649→                      <Input
+   650→                        value={newColorName}
+   651→                        onChange={(e) => setNewColorName(e.target.value)}
+   652→                        placeholder="e.g. Midnight"
+   653→                        className="h-8 text-sm w-28"
+   654→                      />
+   655→                    </div>
+   656→                    <div className="space-y-1">
+   657→                      <Label className="text-xs">Color</Label>
+   658→                      <div className="flex items-center gap-1.5">
+   659→                        <input
+   660→                          type="color"
+   661→                          value={newColorHex}
+   662→                          onChange={(e) => setNewColorHex(e.target.value)}
+   663→                          className="h-8 w-8 rounded cursor-pointer border border-border"
+   664→                        />
+   665→                        <Input
+   666→                          value={newColorHex}
+   667→                          onChange={(e) => setNewColorHex(e.target.value)}
+   668→                          className="h-8 text-sm w-24 font-mono"
+   669→                        />
+   670→                      </div>
+   671→                    </div>
+   672→                    <Button
+   673→                      type="button"
+   674→                      size="sm"
+   675→                      onClick={addCustomColor}
+   676→                      className="h-8 bg-accent hover:bg-accent/90 text-accent-foreground"
+   677→                    >
+   678→                      Add
+   679→                    </Button>
+   680→                    <Button
+   681→                      type="button"
+   682→                      variant="ghost"
+   683→                      size="sm"
+   684→                      onClick={() => setShowCustomColor(false)}
+   685→                      className="h-8"
+   686→                    >
+   687→                      Cancel
+   688→                    </Button>
+   689→                  </div>
+   690→                )}
+   691→              </div>
+   692→            </div>
+   693→
+   694→            <div className="space-y-2">
+   695→              <Label htmlFor="prod-category">Category</Label>
+   696→              <Select
+   697→                value={form.categoryId}
+   698→                onValueChange={(value) => setForm({ ...form, categoryId: value })}
+   699→              >
+   700→                <SelectTrigger className="w-full">
+   701→                  <SelectValue placeholder="Select a category" />
+   702→                </SelectTrigger>
+   703→                <SelectContent>
+   704→                  {categories.map((cat) => (
+   705→                    <SelectItem key={cat.id} value={cat.id}>
+   706→                      {cat.name}
+   707→                    </SelectItem>
+   708→                  ))}
+   709→                </SelectContent>
+   710→              </Select>
+   711→            </div>
+   712→
+   713→            <div className="space-y-2">
+   714→              <Label htmlFor="prod-images">Images (comma-separated URLs)</Label>
+   715→              <Input
+   716→                id="prod-images"
+   717→                value={form.images}
+   718→                onChange={(e) => setForm({ ...form, images: e.target.value })}
+   719→                placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+   720→              />
+   721→            </div>
+   722→
+   723→            <div className="flex items-center gap-3">
+   724→              <Switch
+   725→                id="prod-active"
+   726→                checked={form.isActive}
+   727→                onCheckedChange={(checked) => setForm({ ...form, isActive: checked })}
+   728→              />
+   729→              <Label htmlFor="prod-active" className="cursor-pointer">
+   730→                Active
+   731→              </Label>
+   732→            </div>
+   733→          </div>
+   734→
+   735→          <DialogFooter>
+   736→            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+   737→              Cancel
+   738→            </Button>
+   739→            <Button onClick={handleSubmit} disabled={saving} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+   740→              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+   741→              {editingProduct ? 'Update Product' : 'Create Product'}
+   742→            </Button>
+   743→          </DialogFooter>
+   744→        </DialogContent>
+   745→      </Dialog>
+   746→
+   747→      {/* Delete Confirmation */}
+   748→      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+   749→        <AlertDialogContent>
+   750→          <AlertDialogHeader>
+   751→            <AlertDialogTitle className="font-heading">Deactivate Product</AlertDialogTitle>
+   752→            <AlertDialogDescription>
+   753→              Are you sure you want to deactivate &quot;{deletingProduct?.name}&quot;? This will hide it from the store.
+   754→            </AlertDialogDescription>
+   755→          </AlertDialogHeader>
+   756→          <AlertDialogFooter>
+   757→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   758→            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+   759→              Deactivate
+   760→            </AlertDialogAction>
+   761→          </AlertDialogFooter>
+   762→        </AlertDialogContent>
+   763→      </AlertDialog>
+   764→    </div>
+   765→  )
+   766→}
+   767→

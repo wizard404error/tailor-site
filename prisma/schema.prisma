@@ -40,6 +40,7 @@ model Product {
   price       Float
   stock       Int      @default(0)
   sizes       String   @default("[]") // JSON array: ["XS","S","M","L","XL"]
+  colors      String   @default("[]") // JSON array: [{name:"Red",hex:"#FF0000"}, ...]
   images      String   @default("[]") // JSON array of image URLs
   isActive    Boolean  @default(true)
   categoryId  String?

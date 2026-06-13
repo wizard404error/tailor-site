@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, slug, description, price, stock, sizes, images, isActive, categoryId } = body
+    const { name, slug, description, price, stock, sizes, colors, images, isActive, categoryId } = body
 
     if (!name || !slug || price === undefined) {
       return NextResponse.json(
@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
         price: parseFloat(price),
         stock: stock ? parseInt(stock) : 0,
         sizes: JSON.stringify(sizes || []),
+        colors: JSON.stringify(colors || []),
         images: JSON.stringify(images || []),
         isActive: isActive !== undefined ? isActive : true,
         categoryId: categoryId || null,
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ...product,
       sizes: JSON.parse(product.sizes),
+      colors: JSON.parse(product.colors),
       images: JSON.parse(product.images),
     }, { status: 201 })
   } catch (error) {
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, name, slug, description, price, stock, sizes, images, isActive, categoryId } = body
+    const { id, name, slug, description, price, stock, sizes, colors, images, isActive, categoryId } = body
 
     if (!id) {
       return NextResponse.json(
@@ -91,6 +93,7 @@ export async function PATCH(request: NextRequest) {
     if (price !== undefined) updateData.price = parseFloat(price)
     if (stock !== undefined) updateData.stock = parseInt(stock)
     if (sizes !== undefined) updateData.sizes = JSON.stringify(sizes)
+    if (colors !== undefined) updateData.colors = JSON.stringify(colors)
     if (images !== undefined) updateData.images = JSON.stringify(images)
     if (isActive !== undefined) updateData.isActive = isActive
     if (categoryId !== undefined) updateData.categoryId = categoryId || null
@@ -104,6 +107,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({
       ...product,
       sizes: JSON.parse(product.sizes),
+      colors: JSON.parse(product.colors),
       images: JSON.parse(product.images),
     })
   } catch (error) {

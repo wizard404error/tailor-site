@@ -37,6 +37,7 @@ interface Product {
   price: number;
   stock: number;
   sizes: string[];
+  colors?: { name: string; hex: string }[];
   images: string[];
   category?: { name: string; slug: string };
 }

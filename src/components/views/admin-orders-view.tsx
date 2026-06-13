@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { format } from 'date-fns'
 
 import { useAuthStore } from '@/lib/store'
+import { AdminNav } from '@/components/store/admin-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -225,6 +226,7 @@ export function AdminOrdersView() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <AdminNav />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

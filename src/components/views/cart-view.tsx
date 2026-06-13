@@ -147,6 +147,18 @@ export function CartView() {
                                 {item.size && (
                                   <span className="text-xs text-muted-foreground">Size: {item.size}</span>
                                 )}
+                                {item.color && (
+                                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    {item.size && <span>·</span>}
+                                    {item.colorHex ? (
+                                      <span
+                                        className="inline-block h-3 w-3 rounded-full border border-border/50"
+                                        style={{ backgroundColor: item.colorHex }}
+                                      />
+                                    ) : null}
+                                    {item.color}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <Button

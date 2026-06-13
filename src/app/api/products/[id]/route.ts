@@ -23,6 +23,7 @@ export async function GET(
       product: {
         ...product,
         sizes: JSON.parse(product.sizes),
+        colors: JSON.parse(product.colors),
         images: JSON.parse(product.images),
       }
     })

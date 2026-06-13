@@ -687,6 +687,17 @@ export function CheckoutView() {
                               {item.size && (
                                 <span className="text-xs text-muted-foreground">Size: {item.size}</span>
                               )}
+                              {item.color && (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  {item.colorHex ? (
+                                    <span
+                                      className="inline-block h-3 w-3 rounded-full border border-border/50"
+                                      style={{ backgroundColor: item.colorHex }}
+                                    />
+                                  ) : null}
+                                  {item.color}
+                                </span>
+                              )}
                               <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
                             </div>
                           </div>

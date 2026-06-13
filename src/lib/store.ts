@@ -47,6 +47,8 @@ export interface CartItem {
   price: number;
   quantity: number;
   size?: string;
+  color?: string;
+  colorHex?: string;
   measurementData?: Record<string, number | string>;
   image?: string;
   requiresAppointment?: boolean;
@@ -62,6 +64,7 @@ interface CartState {
   updateMeasurement: (id: string, data: Record<string, number | string>) => void;
   updateAppointment: (id: string, date: string) => void;
   updateSize: (id: string, size: string) => void;
+  updateColor: (id: string, color: string, colorHex?: string) => void;
   clearCart: () => void;
   toggleCart: () => void;
   setCartOpen: (open: boolean) => void;
@@ -82,7 +85,8 @@ export const useCartStore = create<CartState>()(
             (existing) =>
               existing.itemId === item.itemId &&
               existing.itemType === item.itemType &&
-              existing.size === item.size
+              existing.size === item.size &&
+              existing.color === item.color
           );
 
           if (existingIndex > -1) {
@@ -133,6 +137,13 @@ export const useCartStore = create<CartState>()(
         set((state) => ({
           items: state.items.map((item) =>
             item.id === id ? { ...item, size } : item
+          ),
+        })),
+
+      updateColor: (id, color, colorHex) =>
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.id === id ? { ...item, color, colorHex } : item
           ),
         })),
 

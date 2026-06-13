@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     const parsed = products.map((p) => ({
       ...p,
       sizes: JSON.parse(p.sizes),
+      colors: JSON.parse(p.colors),
       images: JSON.parse(p.images),
     }))
 

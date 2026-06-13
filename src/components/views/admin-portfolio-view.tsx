@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Loader2, ChevronUp, ChevronDown, ImageOff } from 
 import { toast } from 'sonner'
 
 import { useAuthStore } from '@/lib/store'
+import { AdminNav } from '@/components/store/admin-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -257,6 +258,7 @@ export function AdminPortfolioView() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <AdminNav />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

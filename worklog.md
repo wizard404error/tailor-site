@@ -156,3 +156,49 @@ Stage Summary:
 - All core features verified working
 - Minor fix: API endpoints now return consistent response format
 - Application is production-ready
+
+---
+Task ID: color-selection-and-dark-mode-fix
+Agent: main
+Task: Add product color selection feature and fix ugly dark mode
+
+Work Log:
+- Added `colors` field to Prisma Product schema as JSON string (array of {name, hex} objects)
+- Ran `prisma db push` to sync schema and `prisma generate` for new client
+- Updated all API routes (/api/products, /api/products/[id], /api/admin/products) to parse/serialize colors field
+- Updated admin products view with full color management UI:
+  - Preset color swatches (24 colors: Black, White, Red, Burgundy, Navy, etc.)
+  - Custom color picker with name + hex input
+  - Selected colors displayed as removable chips with color preview
+  - Colors column added to products table with colored circle previews
+- Updated product card component to show color swatches below price
+- Updated product detail view with interactive color selector:
+  - Circular color buttons with check mark on selected
+  - Light color borders for white/ivory/cream
+  - Color name displayed next to "Color" label
+  - Color passed to cart when adding to cart
+- Updated cart store (CartItem) with `color` and `colorHex` fields
+- Added `updateColor` action to cart store
+- Updated cart deduplication to consider color (same product, different color = separate cart items)
+- Updated cart drawer to show color name + hex swatch
+- Updated cart view and checkout view to display selected color
+- Fixed dark mode by replacing ugly yellow/gold with elegant rose-blush palette:
+  - Primary: #D4A0A0 (soft rose) instead of #D4AF37 (gold)
+  - Accent: #C78B8B (rose) instead of #B76E79
+  - Background: #0F0D11 (deep dark warm) instead of #1A1118 (plum)
+  - Card: #1C1920 instead of #2D1B2E
+  - Better text contrast with #F2E8E0 foreground
+- Updated seed data to include colors for all 6 products
+- Re-seeded database with color data
+- Created AdminNav component for admin page navigation (tabs)
+- Added AdminNav to all 6 admin views
+- Verified with agent browser: product detail shows color selector, cart shows selected color, admin products shows color management, dark mode looks elegant
+
+Stage Summary:
+- Products now support multiple colors with visual color swatches
+- Admin can manage colors via preset palette or custom color picker
+- Customers can select colors on product detail page
+- Cart displays selected colors with hex swatches
+- Dark mode redesigned with soft rose/blush palette (no more ugly yellow)
+- Admin navigation tabs added for easy page switching
+- All changes verified working via browser testing

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import { AdminNav } from '@/components/store/admin-nav'
 import {
   LineChart,
   Line,
@@ -458,6 +459,7 @@ export function AdminDashboardView() {
         initial="hidden"
         animate="visible"
       >
+        <AdminNav />
         {/* ── A. Header Section ─────────────────────────────────────────── */}
         <motion.div variants={itemVariants} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
