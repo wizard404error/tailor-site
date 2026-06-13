@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("customer") // "admin" | "customer"
+  image     String?
+  password  String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders           Order[]
+  savedMeasurements SavedMeasurement[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  price       Float
+  stock       Int      @default(0)
+  sizes       String   @default("[]") // JSON array: ["XS","S","M","L","XL"]
+  images      String   @default("[]") // JSON array of image URLs
+  isActive    Boolean  @default(true)
+  categoryId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category   Category?  @relation(fields: [categoryId], references: [id])
+}
+
+model Service {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  description      String?
+  basePrice        Float
+  turnaroundDays   Int
+  measurementSchema String  @default("{}") // JSON: { chest: "number", waist: "number", ... }
+  requiresAppointment Boolean @default(false)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  savedMeasurements SavedMeasurement[]
+  portfolio         Portfolio[]
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  userId          String?
+  customerName    String
+  customerEmail   String
+  phone           String
+  shippingAddress String   @default("{}") // JSON
+  total           Float
+  couponCode      String?
+  discountAmount  Float    @default(0)
+  status          String   @default("pending") // pending, confirmed, in_production, ready_for_delivery, delivered, cancelled
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user     User?        @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+}
+
+model OrderItem {
+  id               String  @id @default(cuid())
+  orderId          String
+  itemType         String  // "product" | "service"
+  itemId           String  // product.id or service.id
+  itemName         String
+  quantity         Int
+  priceAtBooking   Float
+  size             String? // for products
+  measurementData  String? @default("{}") // JSON for services
+  referenceImages  String  @default("[]") // JSON array
+
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  appointment Appointment?
+}
+
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  discountType  String    // "percent" | "fixed"
+  discountValue Float
+  minOrderValue Float?
+  expiresAt     DateTime?
+  usageLimit    Int?
+  usedCount     Int       @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+}
+
+model Appointment {
+  id            String   @id @default(cuid())
+  orderItemId   String   @unique
+  preferredDate DateTime
+  status        String   @default("pending") // pending, confirmed, completed
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+}
+
+model SavedMeasurement {
+  id             String   @id @default(cuid())
+  userId         String
+  serviceId      String
+  name           String
+  measurementData String  // JSON
+  createdAt      DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+}
+
+model Portfolio {
+  id          String  @id @default(cuid())
+  title       String
+  imageUrl    String
+  description String?
+  serviceId   String?
+  order       Int     @default(0)
+
+  service Service? @relation(fields: [serviceId], references: [id])
+}
+
+model Newsletter {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}

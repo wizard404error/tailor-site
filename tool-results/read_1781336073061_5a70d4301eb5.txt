@@ -1,0 +1,1159 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  LineChart,
+     7→  Line,
+     8→  BarChart,
+     9→  Bar,
+    10→  PieChart,
+    11→  Pie,
+    12→  Cell,
+    13→  XAxis,
+    14→  YAxis,
+    15→  CartesianGrid,
+    16→  Tooltip,
+    17→  Legend,
+    18→  ResponsiveContainer,
+    19→} from 'recharts'
+    20→import {
+    21→  DollarSign,
+    22→  ShoppingCart,
+    23→  TrendingUp,
+    24→  AlertTriangle,
+    25→  Ruler,
+    26→  Users,
+    27→  RefreshCw,
+    28→  Download,
+    29→  CalendarIcon,
+    30→  ArrowUpRight,
+    31→  ArrowDownRight,
+    32→} from 'lucide-react'
+    33→import { format } from 'date-fns'
+    34→
+    35→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    36→import { Button } from '@/components/ui/button'
+    37→import { Badge } from '@/components/ui/badge'
+    38→import { Skeleton } from '@/components/ui/skeleton'
+    39→import {
+    40→  Table,
+    41→  TableBody,
+    42→  TableCell,
+    43→  TableHead,
+    44→  TableHeader,
+    45→  TableRow,
+    46→} from '@/components/ui/table'
+    47→import {
+    48→  Select,
+    49→  SelectContent,
+    50→  SelectItem,
+    51→  SelectTrigger,
+    52→  SelectValue,
+    53→} from '@/components/ui/select'
+    54→import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+    55→import { Calendar } from '@/components/ui/calendar'
+    56→
+    57→// ─── Types ────────────────────────────────────────────────────────────────────
+    58→
+    59→interface AnalyticsData {
+    60→  totalRevenue: number
+    61→  totalOrders: number
+    62→  avgOrderValue: number
+    63→  lowStockCount: number
+    64→  pendingMeasurements: number
+    65→  revenueByDay: { date: string; products: number; services: number }[]
+    66→  salesBreakdown: { products: number; services: number }
+    67→  topProducts: { name: string; quantity: number }[]
+    68→  topServices: { name: string; bookings: number }[]
+    69→  ordersByStatus: { status: string; count: number }[]
+    70→  customerStats: {
+    71→    newCustomersPerMonth: { month: string; count: number }[]
+    72→    repeatRate: number
+    73→  }
+    74→  recentOrders: {
+    75→    id: string
+    76→    customerName: string
+    77→    total: number
+    78→    status: string
+    79→    createdAt: string
+    80→    itemCount: number
+    81→  }[]
+    82→  lowStockProducts: {
+    83→    id: string
+    84→    name: string
+    85→    stock: number
+    86→    price: number
+    87→  }[]
+    88→}
+    89→
+    90→type TimeRange = '7d' | '30d' | '90d' | 'custom'
+    91→
+    92→// ─── Color Constants ──────────────────────────────────────────────────────────
+    93→
+    94→const COLORS = {
+    95→  plum: '#2D1B2E',
+    96→  gold: '#D4AF37',
+    97→  roseGold: '#B76E79',
+    98→  cream: '#FDF8F5',
+    99→  amber: '#F59E0B',
+   100→  blue: '#3B82F6',
+   101→  orange: '#F97316',
+   102→  purple: '#8B5CF6',
+   103→  green: '#10B981',
+   104→  red: '#EF4444',
+   105→}
+   106→
+   107→const STATUS_COLORS: Record<string, string> = {
+   108→  pending: COLORS.amber,
+   109→  confirmed: COLORS.blue,
+   110→  in_production: COLORS.orange,
+   111→  ready_for_delivery: COLORS.purple,
+   112→  delivered: COLORS.green,
+   113→  cancelled: COLORS.red,
+   114→}
+   115→
+   116→// ─── Animation Variants ───────────────────────────────────────────────────────
+   117→
+   118→const containerVariants = {
+   119→  hidden: { opacity: 0 },
+   120→  visible: {
+   121→    opacity: 1,
+   122→    transition: { staggerChildren: 0.08 },
+   123→  },
+   124→}
+   125→
+   126→const itemVariants = {
+   127→  hidden: { opacity: 0, y: 20 },
+   128→  visible: {
+   129→    opacity: 1,
+   130→    y: 0,
+   131→    transition: { duration: 0.4, ease: 'easeOut' },
+   132→  },
+   133→}
+   134→
+   135→const sectionVariants = {
+   136→  hidden: { opacity: 0, y: 30 },
+   137→  visible: {
+   138→    opacity: 1,
+   139→    y: 0,
+   140→    transition: { duration: 0.5, ease: 'easeOut' },
+   141→  },
+   142→}
+   143→
+   144→// ─── Helper Functions ─────────────────────────────────────────────────────────
+   145→
+   146→function formatCurrency(value: number): string {
+   147→  return new Intl.NumberFormat('en-US', {
+   148→    style: 'currency',
+   149→    currency: 'USD',
+   150→    minimumFractionDigits: 0,
+   151→    maximumFractionDigits: 0,
+   152→  }).format(value)
+   153→}
+   154→
+   155→function formatDate(dateStr: string): string {
+   156→  try {
+   157→    return format(new Date(dateStr), 'MMM dd, yyyy')
+   158→  } catch {
+   159→    return dateStr
+   160→  }
+   161→}
+   162→
+   163→function formatMonth(monthStr: string): string {
+   164→  try {
+   165→    return format(new Date(monthStr + '-01'), 'MMM yyyy')
+   166→  } catch {
+   167→    return monthStr
+   168→  }
+   169→}
+   170→
+   171→function getStatusBadgeClass(status: string): string {
+   172→  const color = STATUS_COLORS[status] || COLORS.plum
+   173→  return `text-white border-transparent`
+   174→}
+   175→
+   176→function getStatusBgColor(status: string): string {
+   177→  const color = STATUS_COLORS[status] || COLORS.plum
+   178→  return color
+   179→}
+   180→
+   181→// ─── Custom Chart Tooltip ─────────────────────────────────────────────────────
+   182→
+   183→function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) {
+   184→  if (!active || !payload || payload.length === 0) return null
+   185→  return (
+   186→    <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
+   187→      <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
+   188→      {payload.map((entry, index) => (
+   189→        <p key={index} className="text-sm font-medium" style={{ color: entry.color }}>
+   190→          {entry.name}: {formatCurrency(entry.value)}
+   191→        </p>
+   192→      ))}
+   193→    </div>
+   194→  )
+   195→}
+   196→
+   197→function SimpleTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) {
+   198→  if (!active || !payload || payload.length === 0) return null
+   199→  return (
+   200→    <div className="rounded-lg border border-border bg-card p-3 shadow-lg">
+   201→      {label && <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>}
+   202→      {payload.map((entry, index) => (
+   203→        <p key={index} className="text-sm font-medium" style={{ color: entry.color }}>
+   204→          {entry.name}: {entry.value}
+   205→        </p>
+   206→      ))}
+   207→    </div>
+   208→  )
+   209→}
+   210→
+   211→// ─── Custom Pie Label ─────────────────────────────────────────────────────────
+   212→
+   213→const RADIAN = Math.PI / 180
+   214→function renderCustomizedLabel({
+   215→  cx,
+   216→  cy,
+   217→  midAngle,
+   218→  innerRadius,
+   219→  outerRadius,
+   220→  percent,
+   221→}: {
+   222→  cx: number
+   223→  cy: number
+   224→  midAngle: number
+   225→  innerRadius: number
+   226→  outerRadius: number
+   227→  percent: number
+   228→}) {
+   229→  const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+   230→  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+   231→  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+   232→  return (
+   233→    <text
+   234→      x={x}
+   235→      y={y}
+   236→      fill="white"
+   237→      textAnchor="middle"
+   238→      dominantBaseline="central"
+   239→      className="text-xs font-semibold"
+   240→    >
+   241→      {`${(percent * 100).toFixed(0)}%`}
+   242→    </text>
+   243→  )
+   244→}
+   245→
+   246→// ─── Main Component ───────────────────────────────────────────────────────────
+   247→
+   248→export default function AdminDashboardView() {
+   249→  const [data, setData] = useState<AnalyticsData | null>(null)
+   250→  const [loading, setLoading] = useState(true)
+   251→  const [error, setError] = useState<string | null>(null)
+   252→  const [timeRange, setTimeRange] = useState<TimeRange>('30d')
+   253→  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined)
+   254→  const [dateTo, setDateTo] = useState<Date | undefined>(undefined)
+   255→  const [calendarOpen, setCalendarOpen] = useState(false)
+   256→  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+   257→
+   258→  const getDateRange = useCallback((): { from: string; to: string } => {
+   259→    const to = new Date()
+   260→    let from = new Date()
+   261→
+   262→    if (timeRange === '7d') {
+   263→      from.setDate(to.getDate() - 7)
+   264→    } else if (timeRange === '30d') {
+   265→      from.setDate(to.getDate() - 30)
+   266→    } else if (timeRange === '90d') {
+   267→      from.setDate(to.getDate() - 90)
+   268→    } else if (timeRange === 'custom' && dateFrom && dateTo) {
+   269→      from = dateFrom
+   270→      from.setHours(0, 0, 0, 0)
+   271→      const toDate = new Date(dateTo)
+   272→      toDate.setHours(23, 59, 59, 999)
+   273→      return {
+   274→        from: from.toISOString(),
+   275→        to: toDate.toISOString(),
+   276→      }
+   277→    } else {
+   278→      from.setDate(to.getDate() - 30)
+   279→    }
+   280→
+   281→    return {
+   282→      from: from.toISOString(),
+   283→      to: to.toISOString(),
+   284→    }
+   285→  }, [timeRange, dateFrom, dateTo])
+   286→
+   287→  const fetchData = useCallback(async () => {
+   288→    setLoading(true)
+   289→    setError(null)
+   290→    try {
+   291→      const { from, to } = getDateRange()
+   292→      const res = await fetch(`/api/analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+   293→      if (!res.ok) throw new Error('Failed to fetch analytics data')
+   294→      const json = await res.json()
+   295→      setData(json)
+   296→      setLastUpdated(new Date())
+   297→    } catch (err) {
+   298→      setError(err instanceof Error ? err.message : 'An error occurred')
+   299→    } finally {
+   300→      setLoading(false)
+   301→    }
+   302→  }, [getDateRange])
+   303→
+   304→  useEffect(() => {
+   305→    if (timeRange !== 'custom' || (dateFrom && dateTo)) {
+   306→      fetchData()
+   307→    }
+   308→  }, [timeRange, dateFrom, dateTo, fetchData])
+   309→
+   310→  // ─── CSV Export ───────────────────────────────────────────────────────────
+   311→
+   312→  const exportDashboardCSV = () => {
+   313→    if (!data) return
+   314→    const rows = [
+   315→      ['Metric', 'Value'],
+   316→      ['Total Revenue', data.totalRevenue.toString()],
+   317→      ['Total Orders', data.totalOrders.toString()],
+   318→      ['Average Order Value', data.avgOrderValue.toFixed(2)],
+   319→      ['Low Stock Products', data.lowStockCount.toString()],
+   320→      ['Pending Measurements', data.pendingMeasurements.toString()],
+   321→      ['Repeat Customer Rate', data.customerStats.repeatRate.toFixed(1) + '%'],
+   322→      [],
+   323→      ['Sales Breakdown'],
+   324→      ['Products Revenue', data.salesBreakdown.products.toString()],
+   325→      ['Services Revenue', data.salesBreakdown.services.toString()],
+   326→    ]
+   327→    const csv = rows.map((r) => r.join(',')).join('\n')
+   328→    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+   329→    const url = URL.createObjectURL(blob)
+   330→    const link = document.createElement('a')
+   331→    link.href = url
+   332→    link.download = `dashboard-${format(new Date(), 'yyyy-MM-dd')}.csv`
+   333→    link.click()
+   334→    URL.revokeObjectURL(url)
+   335→  }
+   336→
+   337→  const exportOrdersCSV = () => {
+   338→    if (!data) return
+   339→    const rows = [
+   340→      ['Order ID', 'Customer', 'Total', 'Status', 'Date', 'Items'],
+   341→      ...data.recentOrders.map((o) => [
+   342→        o.id.substring(0, 8),
+   343→        o.customerName,
+   344→        o.total.toString(),
+   345→        o.status,
+   346→        formatDate(o.createdAt),
+   347→        o.itemCount.toString(),
+   348→      ]),
+   349→    ]
+   350→    const csv = rows.map((r) => r.join(',')).join('\n')
+   351→    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+   352→    const url = URL.createObjectURL(blob)
+   353→    const link = document.createElement('a')
+   354→    link.href = url
+   355→    link.download = `orders-${format(new Date(), 'yyyy-MM-dd')}.csv`
+   356→    link.click()
+   357→    URL.revokeObjectURL(url)
+   358→  }
+   359→
+   360→  // ─── Sales breakdown for pie chart ────────────────────────────────────────
+   361→
+   362→  const salesBreakdownData = data
+   363→    ? [
+   364→        { name: 'Products', value: data.salesBreakdown.products },
+   365→        { name: 'Services', value: data.salesBreakdown.services },
+   366→      ]
+   367→    : []
+   368→
+   369→  const ordersByStatusData = data
+   370→    ? data.ordersByStatus.map((item) => ({
+   371→        name: item.status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+   372→        value: item.count,
+   373→        status: item.status,
+   374→      }))
+   375→    : []
+   376→
+   377→  const topProductsData = data ? data.topProducts.slice(0, 5) : []
+   378→  const topServicesData = data ? data.topServices.slice(0, 5) : []
+   379→  const customersPerMonthData = data ? data.customerStats.newCustomersPerMonth : []
+   380→
+   381→  const totalOrdersFromStatus = ordersByStatusData.reduce((sum, item) => sum + item.value, 0)
+   382→
+   383→  // ─── Loading Skeletons ────────────────────────────────────────────────────
+   384→
+   385→  if (loading && !data) {
+   386→    return (
+   387→      <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+   388→        <div className="mx-auto max-w-7xl space-y-6">
+   389→          {/* Header Skeleton */}
+   390→          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   391→            <Skeleton className="h-10 w-48" />
+   392→            <div className="flex gap-2">
+   393→              <Skeleton className="h-9 w-40" />
+   394→              <Skeleton className="h-9 w-24" />
+   395→            </div>
+   396→          </div>
+   397→          {/* KPI Cards Skeleton */}
+   398→          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+   399→            {Array.from({ length: 6 }).map((_, i) => (
+   400→              <Card key={i} className="p-6">
+   401→                <div className="flex items-center gap-4">
+   402→                  <Skeleton className="size-12 rounded-lg" />
+   403→                  <div className="flex-1 space-y-2">
+   404→                    <Skeleton className="h-4 w-24" />
+   405→                    <Skeleton className="h-8 w-32" />
+   406→                  </div>
+   407→                </div>
+   408→              </Card>
+   409→            ))}
+   410→          </div>
+   411→          {/* Charts Skeleton */}
+   412→          <Card className="p-6">
+   413→            <Skeleton className="mb-4 h-6 w-40" />
+   414→            <Skeleton className="h-72 w-full" />
+   415→          </Card>
+   416→          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+   417→            {Array.from({ length: 2 }).map((_, i) => (
+   418→              <Card key={i} className="p-6">
+   419→                <Skeleton className="mb-4 h-6 w-40" />
+   420→                <Skeleton className="h-64 w-full" />
+   421→              </Card>
+   422→            ))}
+   423→          </div>
+   424→          <Card className="p-6">
+   425→            <Skeleton className="mb-4 h-6 w-40" />
+   426→            <Skeleton className="h-48 w-full" />
+   427→          </Card>
+   428→        </div>
+   429→      </div>
+   430→    )
+   431→  }
+   432→
+   433→  // ─── Error State ──────────────────────────────────────────────────────────
+   434→
+   435→  if (error && !data) {
+   436→    return (
+   437→      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+   438→        <Card className="max-w-md p-8 text-center">
+   439→          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-red-100">
+   440→            <AlertTriangle className="size-8 text-red-500" />
+   441→          </div>
+   442→          <h2 className="font-heading mb-2 text-xl font-semibold">Failed to Load Dashboard</h2>
+   443→          <p className="mb-6 text-muted-foreground">{error}</p>
+   444→          <Button onClick={fetchData} className="bg-primary text-primary-foreground hover:bg-primary/90">
+   445→            <RefreshCw className="mr-2 size-4" />
+   446→            Retry
+   447→          </Button>
+   448→        </Card>
+   449→      </div>
+   450→    )
+   451→  }
+   452→
+   453→  return (
+   454→    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+   455→      <motion.div
+   456→        className="mx-auto max-w-7xl space-y-6"
+   457→        variants={containerVariants}
+   458→        initial="hidden"
+   459→        animate="visible"
+   460→      >
+   461→        {/* ── A. Header Section ─────────────────────────────────────────── */}
+   462→        <motion.div variants={itemVariants} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   463→          <div>
+   464→            <h1 className="font-heading text-3xl font-bold text-foreground sm:text-4xl">Dashboard</h1>
+   465→            <p className="mt-1 text-sm text-muted-foreground">
+   466→              Last updated: {format(lastUpdated, 'MMM dd, yyyy h:mm a')}
+   467→            </p>
+   468→          </div>
+   469→          <div className="flex flex-wrap items-center gap-2">
+   470→            <Select
+   471→              value={timeRange}
+   472→              onValueChange={(val: TimeRange) => {
+   473→                setTimeRange(val)
+   474→                if (val !== 'custom') {
+   475→                  setDateFrom(undefined)
+   476→                  setDateTo(undefined)
+   477→                }
+   478→              }}
+   479→            >
+   480→              <SelectTrigger className="w-[160px]">
+   481→                <SelectValue placeholder="Select range" />
+   482→              </SelectTrigger>
+   483→              <SelectContent>
+   484→                <SelectItem value="7d">Last 7 days</SelectItem>
+   485→                <SelectItem value="30d">Last 30 days</SelectItem>
+   486→                <SelectItem value="90d">Last 90 days</SelectItem>
+   487→                <SelectItem value="custom">Custom range</SelectItem>
+   488→              </SelectContent>
+   489→            </Select>
+   490→
+   491→            {timeRange === 'custom' && (
+   492→              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+   493→                <PopoverTrigger asChild>
+   494→                  <Button variant="outline" className="gap-2">
+   495→                    <CalendarIcon className="size-4" />
+   496→                    {dateFrom && dateTo
+   497→                      ? `${format(dateFrom, 'MMM dd')} - ${format(dateTo, 'MMM dd')}`
+   498→                      : 'Pick dates'}
+   499→                  </Button>
+   500→                </PopoverTrigger>
+   501→                <PopoverContent className="w-auto p-0" align="end">
+   502→                  <Calendar
+   503→                    mode="range"
+   504→                    selected={{ from: dateFrom, to: dateTo }}
+   505→                    onSelect={(range) => {
+   506→                      setDateFrom(range?.from)
+   507→                      setDateTo(range?.to)
+   508→                      if (range?.from && range?.to) {
+   509→                        setCalendarOpen(false)
+   510→                      }
+   511→                    }}
+   512→                    numberOfMonths={2}
+   513→                  />
+   514→                </PopoverContent>
+   515→              </Popover>
+   516→            )}
+   517→
+   518→            <Button variant="outline" size="icon" onClick={fetchData} disabled={loading} title="Refresh data">
+   519→              <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+   520→            </Button>
+   521→          </div>
+   522→        </motion.div>
+   523→
+   524→        {/* ── B. KPI Cards ──────────────────────────────────────────────── */}
+   525→        <motion.div
+   526→          variants={containerVariants}
+   527→          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+   528→        >
+   529→          {/* Total Revenue */}
+   530→          <motion.div variants={itemVariants}>
+   531→            <Card className="relative overflow-hidden border-l-4 border-l-accent">
+   532→              <CardContent className="p-6">
+   533→                <div className="flex items-center gap-4">
+   534→                  <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-accent/10">
+   535→                    <DollarSign className="size-6 text-accent" />
+   536→                  </div>
+   537→                  <div className="min-w-0 flex-1">
+   538→                    <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+   539→                    <div className="flex items-baseline gap-2">
+   540→                      <p className="font-heading text-2xl font-bold text-foreground">
+   541→                        {formatCurrency(data?.totalRevenue ?? 0)}
+   542→                      </p>
+   543→                      <span className="flex items-center text-xs font-medium text-green-600">
+   544→                        <ArrowUpRight className="size-3" />
+   545→                      </span>
+   546→                    </div>
+   547→                  </div>
+   548→                </div>
+   549→              </CardContent>
+   550→            </Card>
+   551→          </motion.div>
+   552→
+   553→          {/* Total Orders */}
+   554→          <motion.div variants={itemVariants}>
+   555→            <Card className="relative overflow-hidden border-l-4 border-l-primary">
+   556→              <CardContent className="p-6">
+   557→                <div className="flex items-center gap-4">
+   558→                  <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+   559→                    <ShoppingCart className="size-6 text-primary" />
+   560→                  </div>
+   561→                  <div className="min-w-0 flex-1">
+   562→                    <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+   563→                    <div className="flex items-baseline gap-2">
+   564→                      <p className="font-heading text-2xl font-bold text-foreground">
+   565→                        {data?.totalOrders ?? 0}
+   566→                      </p>
+   567→                      <span className="flex items-center text-xs font-medium text-green-600">
+   568→                        <ArrowUpRight className="size-3" />
+   569→                      </span>
+   570→                    </div>
+   571→                  </div>
+   572→                </div>
+   573→              </CardContent>
+   574→            </Card>
+   575→          </motion.div>
+   576→
+   577→          {/* Average Order Value */}
+   578→          <motion.div variants={itemVariants}>
+   579→            <Card className="relative overflow-hidden border-l-4 border-l-[#B76E79]">
+   580→              <CardContent className="p-6">
+   581→                <div className="flex items-center gap-4">
+   582→                  <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-[#B76E79]/10">
+   583→                    <TrendingUp className="size-6 text-[#B76E79]" />
+   584→                  </div>
+   585→                  <div className="min-w-0 flex-1">
+   586→                    <p className="text-sm font-medium text-muted-foreground">Avg Order Value</p>
+   587→                    <div className="flex items-baseline gap-2">
+   588→                      <p className="font-heading text-2xl font-bold text-foreground">
+   589→                        {formatCurrency(data?.avgOrderValue ?? 0)}
+   590→                      </p>
+   591→                      <span className="flex items-center text-xs font-medium text-red-500">
+   592→                        <ArrowDownRight className="size-3" />
+   593→                      </span>
+   594→                    </div>
+   595→                  </div>
+   596→                </div>
+   597→              </CardContent>
+   598→            </Card>
+   599→          </motion.div>
+   600→
+   601→          {/* Low Stock Products */}
+   602→          <motion.div variants={itemVariants}>
+   603→            <Card className={`relative overflow-hidden border-l-4 ${(data?.lowStockCount ?? 0) > 0 ? 'border-l-amber-500' : 'border-l-green-500'}`}>
+   604→              <CardContent className="p-6">
+   605→                <div className="flex items-center gap-4">
+   606→                  <div className={`flex size-12 shrink-0 items-center justify-center rounded-lg ${(data?.lowStockCount ?? 0) > 0 ? 'bg-amber-500/10' : 'bg-green-500/10'}`}>
+   607→                    <AlertTriangle className={`size-6 ${(data?.lowStockCount ?? 0) > 0 ? 'text-amber-500' : 'text-green-500'}`} />
+   608→                  </div>
+   609→                  <div className="min-w-0 flex-1">
+   610→                    <p className="text-sm font-medium text-muted-foreground">Low Stock Products</p>
+   611→                    <div className="flex items-baseline gap-2">
+   612→                      <p className="font-heading text-2xl font-bold text-foreground">
+   613→                        {data?.lowStockCount ?? 0}
+   614→                      </p>
+   615→                      {(data?.lowStockCount ?? 0) > 0 && (
+   616→                        <Badge className="bg-amber-500/15 text-amber-700 border-amber-200 text-xs">
+   617→                          Warning
+   618→                        </Badge>
+   619→                      )}
+   620→                    </div>
+   621→                  </div>
+   622→                </div>
+   623→              </CardContent>
+   624→            </Card>
+   625→          </motion.div>
+   626→
+   627→          {/* Pending Measurements */}
+   628→          <motion.div variants={itemVariants}>
+   629→            <Card className="relative overflow-hidden border-l-4 border-l-purple-500">
+   630→              <CardContent className="p-6">
+   631→                <div className="flex items-center gap-4">
+   632→                  <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-purple-500/10">
+   633→                    <Ruler className="size-6 text-purple-500" />
+   634→                  </div>
+   635→                  <div className="min-w-0 flex-1">
+   636→                    <p className="text-sm font-medium text-muted-foreground">Pending Measurements</p>
+   637→                    <div className="flex items-baseline gap-2">
+   638→                      <p className="font-heading text-2xl font-bold text-foreground">
+   639→                        {data?.pendingMeasurements ?? 0}
+   640→                      </p>
+   641→                      {(data?.pendingMeasurements ?? 0) > 0 && (
+   642→                        <span className="flex items-center text-xs font-medium text-amber-600">
+   643→                          <ArrowUpRight className="size-3" />
+   644→                        </span>
+   645→                      )}
+   646→                    </div>
+   647→                  </div>
+   648→                </div>
+   649→              </CardContent>
+   650→            </Card>
+   651→          </motion.div>
+   652→
+   653→          {/* Repeat Customer Rate */}
+   654→          <motion.div variants={itemVariants}>
+   655→            <Card className="relative overflow-hidden border-l-4 border-l-accent">
+   656→              <CardContent className="p-6">
+   657→                <div className="flex items-center gap-4">
+   658→                  <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-accent/10">
+   659→                    <Users className="size-6 text-accent" />
+   660→                  </div>
+   661→                  <div className="min-w-0 flex-1">
+   662→                    <p className="text-sm font-medium text-muted-foreground">Repeat Customer Rate</p>
+   663→                    <div className="flex items-baseline gap-2">
+   664→                      <p className="font-heading text-2xl font-bold text-foreground">
+   665→                        {(data?.customerStats.repeatRate ?? 0).toFixed(1)}%
+   666→                      </p>
+   667→                      {(data?.customerStats.repeatRate ?? 0) >= 30 ? (
+   668→                        <span className="flex items-center text-xs font-medium text-green-600">
+   669→                          <ArrowUpRight className="size-3" />
+   670→                        </span>
+   671→                      ) : (
+   672→                        <span className="flex items-center text-xs font-medium text-red-500">
+   673→                          <ArrowDownRight className="size-3" />
+   674→                        </span>
+   675→                      )}
+   676→                    </div>
+   677→                  </div>
+   678→                </div>
+   679→              </CardContent>
+   680→            </Card>
+   681→          </motion.div>
+   682→        </motion.div>
+   683→
+   684→        {/* ── C. Revenue Chart (Line Chart - Full Width) ────────────────── */}
+   685→        <motion.div variants={sectionVariants}>
+   686→          <Card>
+   687→            <CardHeader>
+   688→              <CardTitle className="font-heading text-lg">Revenue Over Time</CardTitle>
+   689→              <CardDescription>Products vs Services revenue breakdown</CardDescription>
+   690→            </CardHeader>
+   691→            <CardContent>
+   692→              <div className="h-72 sm:h-80">
+   693→                <ResponsiveContainer width="100%" height="100%">
+   694→                  <LineChart data={data?.revenueByDay ?? []} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+   695→                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+   696→                    <XAxis
+   697→                      dataKey="date"
+   698→                      tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }}
+   699→                      tickFormatter={(val: string) => {
+   700→                        try {
+   701→                          return format(new Date(val), 'MMM dd')
+   702→                        } catch {
+   703→                          return val
+   704→                        }
+   705→                      }}
+   706→                    />
+   707→                    <YAxis
+   708→                      tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }}
+   709→                      tickFormatter={(val: number) => `$${val}`}
+   710→                    />
+   711→                    <Tooltip content={<CustomTooltip />} />
+   712→                    <Legend />
+   713→                    <Line
+   714→                      type="monotone"
+   715→                      dataKey="products"
+   716→                      name="Products"
+   717→                      stroke={COLORS.plum}
+   718→                      strokeWidth={2.5}
+   719→                      dot={{ r: 3, fill: COLORS.plum }}
+   720→                      activeDot={{ r: 5 }}
+   721→                    />
+   722→                    <Line
+   723→                      type="monotone"
+   724→                      dataKey="services"
+   725→                      name="Services"
+   726→                      stroke={COLORS.gold}
+   727→                      strokeWidth={2.5}
+   728→                      dot={{ r: 3, fill: COLORS.gold }}
+   729→                      activeDot={{ r: 5 }}
+   730→                    />
+   731→                  </LineChart>
+   732→                </ResponsiveContainer>
+   733→              </div>
+   734→            </CardContent>
+   735→          </Card>
+   736→        </motion.div>
+   737→
+   738→        {/* ── D. Sales Breakdown & E. Orders by Status ──────────────────── */}
+   739→        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+   740→          {/* D. Sales Breakdown (Pie Chart) */}
+   741→          <motion.div variants={sectionVariants}>
+   742→            <Card className="h-full">
+   743→              <CardHeader>
+   744→                <CardTitle className="font-heading text-lg">Sales Breakdown</CardTitle>
+   745→                <CardDescription>Products vs Services revenue split</CardDescription>
+   746→              </CardHeader>
+   747→              <CardContent>
+   748→                <div className="h-64">
+   749→                  {salesBreakdownData.length > 0 && (salesBreakdownData[0].value > 0 || salesBreakdownData[1].value > 0) ? (
+   750→                    <ResponsiveContainer width="100%" height="100%">
+   751→                      <PieChart>
+   752→                        <Pie
+   753→                          data={salesBreakdownData}
+   754→                          cx="50%"
+   755→                          cy="45%"
+   756→                          outerRadius={80}
+   757→                          dataKey="value"
+   758→                          label={renderCustomizedLabel}
+   759→                          labelLine={false}
+   760→                          animationBegin={0}
+   761→                          animationDuration={800}
+   762→                        >
+   763→                          <Cell fill={COLORS.plum} stroke="none" />
+   764→                          <Cell fill={COLORS.gold} stroke="none" />
+   765→                        </Pie>
+   766→                        <Tooltip
+   767→                          formatter={(value: number) => formatCurrency(value)}
+   768→                          contentStyle={{
+   769→                            borderRadius: '8px',
+   770→                            border: '1px solid var(--color-border)',
+   771→                            backgroundColor: 'var(--color-card)',
+   772→                          }}
+   773→                        />
+   774→                        <Legend
+   775→                          verticalAlign="bottom"
+   776→                          height={36}
+   777→                          formatter={(value: string) => (
+   778→                            <span className="text-sm text-foreground">{value}</span>
+   779→                          )}
+   780→                        />
+   781→                      </PieChart>
+   782→                    </ResponsiveContainer>
+   783→                  ) : (
+   784→                    <div className="flex h-full items-center justify-center text-muted-foreground">
+   785→                      No sales data available
+   786→                    </div>
+   787→                  )}
+   788→                </div>
+   789→              </CardContent>
+   790→            </Card>
+   791→          </motion.div>
+   792→
+   793→          {/* E. Orders by Status (Donut Chart) */}
+   794→          <motion.div variants={sectionVariants}>
+   795→            <Card className="h-full">
+   796→              <CardHeader>
+   797→                <CardTitle className="font-heading text-lg">Orders by Status</CardTitle>
+   798→                <CardDescription>Current order status distribution</CardDescription>
+   799→              </CardHeader>
+   800→              <CardContent>
+   801→                <div className="h-64">
+   802→                  {ordersByStatusData.length > 0 ? (
+   803→                    <ResponsiveContainer width="100%" height="100%">
+   804→                      <PieChart>
+   805→                        <Pie
+   806→                          data={ordersByStatusData}
+   807→                          cx="50%"
+   808→                          cy="45%"
+   809→                          innerRadius={55}
+   810→                          outerRadius={80}
+   811→                          dataKey="value"
+   812→                          animationBegin={0}
+   813→                          animationDuration={800}
+   814→                        >
+   815→                          {ordersByStatusData.map((entry, index) => (
+   816→                            <Cell
+   817→                              key={`cell-${index}`}
+   818→                              fill={STATUS_COLORS[entry.status] || COLORS.plum}
+   819→                              stroke="none"
+   820→                            />
+   821→                          ))}
+   822→                        </Pie>
+   823→                        <Tooltip
+   824→                          contentStyle={{
+   825→                            borderRadius: '8px',
+   826→                            border: '1px solid var(--color-border)',
+   827→                            backgroundColor: 'var(--color-card)',
+   828→                          }}
+   829→                        />
+   830→                        <Legend
+   831→                          verticalAlign="bottom"
+   832→                          height={36}
+   833→                          formatter={(value: string) => (
+   834→                            <span className="text-sm text-foreground">{value}</span>
+   835→                          )}
+   836→                        />
+   837→                        {/* Center text */}
+   838→                        <text
+   839→                          x="50%"
+   840→                          y="42%"
+   841→                          textAnchor="middle"
+   842→                          dominantBaseline="middle"
+   843→                          className="fill-foreground font-heading text-2xl font-bold"
+   844→                        >
+   845→                          {totalOrdersFromStatus}
+   846→                        </text>
+   847→                        <text
+   848→                          x="50%"
+   849→                          y="52%"
+   850→                          textAnchor="middle"
+   851→                          dominantBaseline="middle"
+   852→                          className="fill-muted-foreground text-xs"
+   853→                        >
+   854→                          orders
+   855→                        </text>
+   856→                      </PieChart>
+   857→                    </ResponsiveContainer>
+   858→                  ) : (
+   859→                    <div className="flex h-full items-center justify-center text-muted-foreground">
+   860→                      No order data available
+   861→                    </div>
+   862→                  )}
+   863→                </div>
+   864→              </CardContent>
+   865→            </Card>
+   866→          </motion.div>
+   867→        </div>
+   868→
+   869→        {/* ── F. Top Products & G. Top Services ─────────────────────────── */}
+   870→        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+   871→          {/* F. Top 5 Products (Horizontal Bar) */}
+   872→          <motion.div variants={sectionVariants}>
+   873→            <Card className="h-full">
+   874→              <CardHeader>
+   875→                <CardTitle className="font-heading text-lg">Top 5 Products</CardTitle>
+   876→                <CardDescription>Best selling products by quantity</CardDescription>
+   877→              </CardHeader>
+   878→              <CardContent>
+   879→                <div className="h-64">
+   880→                  {topProductsData.length > 0 ? (
+   881→                    <ResponsiveContainer width="100%" height="100%">
+   882→                      <BarChart
+   883→                        data={topProductsData}
+   884→                        layout="vertical"
+   885→                        margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+   886→                      >
+   887→                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+   888→                        <XAxis
+   889→                          type="number"
+   890→                          tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }}
+   891→                        />
+   892→                        <YAxis
+   893→                          type="category"
+   894→                          dataKey="name"
+   895→                          tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
+   896→                          width={120}
+   897→                        />
+   898→                        <Tooltip content={<SimpleTooltip />} />
+   899→                        <Bar
+   900→                          dataKey="quantity"
+   901→                          name="Quantity"
+   902→                          fill={COLORS.plum}
+   903→                          radius={[0, 4, 4, 0]}
+   904→                          animationDuration={800}
+   905→                        />
+   906→                      </BarChart>
+   907→                    </ResponsiveContainer>
+   908→                  ) : (
+   909→                    <div className="flex h-full items-center justify-center text-muted-foreground">
+   910→                      No product data available
+   911→                    </div>
+   912→                  )}
+   913→                </div>
+   914→              </CardContent>
+   915→            </Card>
+   916→          </motion.div>
+   917→
+   918→          {/* G. Top 5 Services (Vertical Bar) */}
+   919→          <motion.div variants={sectionVariants}>
+   920→            <Card className="h-full">
+   921→              <CardHeader>
+   922→                <CardTitle className="font-heading text-lg">Top 5 Services</CardTitle>
+   923→                <CardDescription>Most booked services</CardDescription>
+   924→              </CardHeader>
+   925→              <CardContent>
+   926→                <div className="h-64">
+   927→                  {topServicesData.length > 0 ? (
+   928→                    <ResponsiveContainer width="100%" height="100%">
+   929→                      <BarChart
+   930→                        data={topServicesData}
+   931→                        margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+   932→                      >
+   933→                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+   934→                        <XAxis
+   935→                          dataKey="name"
+   936→                          tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
+   937→                          angle={-25}
+   938→                          textAnchor="end"
+   939→                          height={60}
+   940→                        />
+   941→                        <YAxis
+   942→                          tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }}
+   943→                        />
+   944→                        <Tooltip content={<SimpleTooltip />} />
+   945→                        <Bar
+   946→                          dataKey="bookings"
+   947→                          name="Bookings"
+   948→                          fill={COLORS.gold}
+   949→                          radius={[4, 4, 0, 0]}
+   950→                          animationDuration={800}
+   951→                        />
+   952→                      </BarChart>
+   953→                    </ResponsiveContainer>
+   954→                  ) : (
+   955→                    <div className="flex h-full items-center justify-center text-muted-foreground">
+   956→                      No service data available
+   957→                    </div>
+   958→                  )}
+   959→                </div>
+   960→              </CardContent>
+   961→            </Card>
+   962→          </motion.div>
+   963→        </div>
+   964→
+   965→        {/* ── H. Customer Analytics ──────────────────────────────────────── */}
+   966→        <motion.div variants={sectionVariants}>
+   967→          <Card>
+   968→            <CardHeader>
+   969→              <CardTitle className="font-heading text-lg">Customer Analytics</CardTitle>
+   970→              <CardDescription>New customer growth and retention</CardDescription>
+   971→            </CardHeader>
+   972→            <CardContent>
+   973→              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+   974→                {/* Repeat Rate Display */}
+   975→                <div className="flex flex-col items-center justify-center rounded-xl bg-accent/5 p-6">
+   976→                  <p className="mb-2 text-sm font-medium text-muted-foreground">Repeat Customer Rate</p>
+   977→                  <p className="font-heading text-5xl font-bold text-accent">
+   978→                    {(data?.customerStats.repeatRate ?? 0).toFixed(1)}%
+   979→                  </p>
+   980→                  <p className="mt-2 text-xs text-muted-foreground">of customers return</p>
+   981→                </div>
+   982→                {/* New Customers Chart */}
+   983→                <div className="lg:col-span-2 h-48">
+   984→                  {customersPerMonthData.length > 0 ? (
+   985→                    <ResponsiveContainer width="100%" height="100%">
+   986→                      <LineChart data={customersPerMonthData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+   987→                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+   988→                        <XAxis
+   989→                          dataKey="month"
+   990→                          tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
+   991→                          tickFormatter={(val: string) => formatMonth(val)}
+   992→                        />
+   993→                        <YAxis
+   994→                          tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }}
+   995→                          allowDecimals={false}
+   996→                        />
+   997→                        <Tooltip
+   998→                          contentStyle={{
+   999→                            borderRadius: '8px',
+  1000→                            border: '1px solid var(--color-border)',
+  1001→                            backgroundColor: 'var(--color-card)',
+  1002→                          }}
+  1003→                          labelFormatter={(label: string) => formatMonth(label)}
+  1004→                          formatter={(value: number) => [value, 'New Customers']}
+  1005→                        />
+  1006→                        <Line
+  1007→                          type="monotone"
+  1008→                          dataKey="count"
+  1009→                          name="New Customers"
+  1010→                          stroke={COLORS.roseGold}
+  1011→                          strokeWidth={2.5}
+  1012→                          dot={{ r: 3, fill: COLORS.roseGold }}
+  1013→                          activeDot={{ r: 5 }}
+  1014→                        />
+  1015→                      </LineChart>
+  1016→                    </ResponsiveContainer>
+  1017→                  ) : (
+  1018→                    <div className="flex h-full items-center justify-center text-muted-foreground">
+  1019→                      No customer data available
+  1020→                    </div>
+  1021→                  )}
+  1022→                </div>
+  1023→              </div>
+  1024→            </CardContent>
+  1025→          </Card>
+  1026→        </motion.div>
+  1027→
+  1028→        {/* ── I. Recent Orders Table ─────────────────────────────────────── */}
+  1029→        <motion.div variants={sectionVariants}>
+  1030→          <Card>
+  1031→            <CardHeader>
+  1032→              <CardTitle className="font-heading text-lg">Recent Orders</CardTitle>
+  1033→              <CardDescription>Latest 10 orders placed</CardDescription>
+  1034→            </CardHeader>
+  1035→            <CardContent>
+  1036→              <div className="max-h-96 overflow-y-auto">
+  1037→                <Table>
+  1038→                  <TableHeader>
+  1039→                    <TableRow>
+  1040→                      <TableHead>Order ID</TableHead>
+  1041→                      <TableHead>Customer</TableHead>
+  1042→                      <TableHead>Total</TableHead>
+  1043→                      <TableHead>Status</TableHead>
+  1044→                      <TableHead>Date</TableHead>
+  1045→                    </TableRow>
+  1046→                  </TableHeader>
+  1047→                  <TableBody>
+  1048→                    {data?.recentOrders && data.recentOrders.length > 0 ? (
+  1049→                      data.recentOrders.map((order) => (
+  1050→                        <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50">
+  1051→                          <TableCell className="font-mono text-xs">
+  1052→                            {order.id.substring(0, 8)}
+  1053→                          </TableCell>
+  1054→                          <TableCell className="font-medium">{order.customerName}</TableCell>
+  1055→                          <TableCell>{formatCurrency(order.total)}</TableCell>
+  1056→                          <TableCell>
+  1057→                            <Badge
+  1058→                              className={getStatusBadgeClass(order.status)}
+  1059→                              style={{ backgroundColor: getStatusBgColor(order.status) }}
+  1060→                            >
+  1061→                              {order.status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+  1062→                            </Badge>
+  1063→                          </TableCell>
+  1064→                          <TableCell className="text-muted-foreground">
+  1065→                            {formatDate(order.createdAt)}
+  1066→                          </TableCell>
+  1067→                        </TableRow>
+  1068→                      ))
+  1069→                    ) : (
+  1070→                      <TableRow>
+  1071→                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+  1072→                          No recent orders
+  1073→                        </TableCell>
+  1074→                      </TableRow>
+  1075→                    )}
+  1076→                  </TableBody>
+  1077→                </Table>
+  1078→              </div>
+  1079→            </CardContent>
+  1080→          </Card>
+  1081→        </motion.div>
+  1082→
+  1083→        {/* ── J. Low Stock Products Table ────────────────────────────────── */}
+  1084→        <motion.div variants={sectionVariants}>
+  1085→          <Card>
+  1086→            <CardHeader>
+  1087→              <CardTitle className="font-heading text-lg">Low Stock Products</CardTitle>
+  1088→              <CardDescription>Products that need restocking</CardDescription>
+  1089→            </CardHeader>
+  1090→            <CardContent>
+  1091→              <div className="max-h-96 overflow-y-auto">
+  1092→                <Table>
+  1093→                  <TableHeader>
+  1094→                    <TableRow>
+  1095→                      <TableHead>Product</TableHead>
+  1096→                      <TableHead>Stock</TableHead>
+  1097→                      <TableHead>Price</TableHead>
+  1098→                      <TableHead>Status</TableHead>
+  1099→                    </TableRow>
+  1100→                  </TableHeader>
+  1101→                  <TableBody>
+  1102→                    {data?.lowStockProducts && data.lowStockProducts.length > 0 ? (
+  1103→                      data.lowStockProducts.map((product) => (
+  1104→                        <TableRow key={product.id}>
+  1105→                          <TableCell className="font-medium">{product.name}</TableCell>
+  1106→                          <TableCell>{product.stock}</TableCell>
+  1107→                          <TableCell>{formatCurrency(product.price)}</TableCell>
+  1108→                          <TableCell>
+  1109→                            {product.stock < 3 ? (
+  1110→                              <Badge className="bg-red-500/15 text-red-700 border-red-200 text-xs">
+  1111→                                Critical
+  1112→                              </Badge>
+  1113→                            ) : (
+  1114→                              <Badge className="bg-amber-500/15 text-amber-700 border-amber-200 text-xs">
+  1115→                                Low Stock
+  1116→                              </Badge>
+  1117→                            )}
+  1118→                          </TableCell>
+  1119→                        </TableRow>
+  1120→                      ))
+  1121→                    ) : (
+  1122→                      <TableRow>
+  1123→                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+  1124→                          All products are well stocked
+  1125→                        </TableCell>
+  1126→                      </TableRow>
+  1127→                    )}
+  1128→                  </TableBody>
+  1129→                </Table>
+  1130→              </div>
+  1131→            </CardContent>
+  1132→          </Card>
+  1133→        </motion.div>
+  1134→
+  1135→        {/* ── K. Export Buttons ──────────────────────────────────────────── */}
+  1136→        <motion.div variants={sectionVariants} className="flex flex-wrap gap-3">
+  1137→          <Button
+  1138→            onClick={exportDashboardCSV}
+  1139→            disabled={!data}
+  1140→            className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+  1141→          >
+  1142→            <Download className="size-4" />
+  1143→            Export Dashboard CSV
+  1144→          </Button>
+  1145→          <Button
+  1146→            onClick={exportOrdersCSV}
+  1147→            disabled={!data}
+  1148→            variant="outline"
+  1149→            className="gap-2"
+  1150→          >
+  1151→            <Download className="size-4" />
+  1152→            Export Orders CSV
+  1153→          </Button>
+  1154→        </motion.div>
+  1155→      </motion.div>
+  1156→    </div>
+  1157→  )
+  1158→}
+  1159→
