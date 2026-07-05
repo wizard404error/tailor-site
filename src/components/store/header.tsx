@@ -33,6 +33,11 @@ export function Header() {
   const { user, isLoggedIn, isAdmin, logout } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -114,7 +119,7 @@ export function Header() {
                 aria-label="Open cart"
               >
                 <ShoppingBag className="h-5 w-5" />
-                {itemCount() > 0 && (
+                {mounted && itemCount() > 0 && (
                   <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-accent text-accent-foreground text-[10px] font-bold">
                     {itemCount()}
                   </Badge>
