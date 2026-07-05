@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '@/lib/store'
+import { formatPrice } from '@/lib/utils'
 import { AdminNav } from '@/components/store/admin-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -321,7 +322,7 @@ export function AdminServicesView() {
                   <TableRow key={service.id}>
                     <TableCell className="font-medium">{service.name}</TableCell>
                     <TableCell className="text-accent font-semibold">
-                      ${service.basePrice.toFixed(2)}
+                      {formatPrice(service.basePrice)}
                     </TableCell>
                     <TableCell>{service.turnaroundDays} days</TableCell>
                     <TableCell>

@@ -1,0 +1,851 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  ArrowLeft,
+     7→  ArrowRight,
+     8→  Check,
+     9→  Truck,
+    10→  Scissors,
+    11→  CreditCard,
+    12→  Banknote,
+    13→  ShieldCheck,
+    14→} from 'lucide-react'
+    15→import { useCartStore, useAuthStore, useNavigationStore } from '@/lib/store'
+    16→import { Button } from '@/components/ui/button'
+    17→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    18→import { Input } from '@/components/ui/input'
+    19→import { Label } from '@/components/ui/label'
+    20→import { Badge } from '@/components/ui/badge'
+    21→import { Separator } from '@/components/ui/separator'
+    22→import {
+    23→  Select,
+    24→  SelectContent,
+    25→  SelectItem,
+    26→  SelectTrigger,
+    27→  SelectValue,
+    28→} from '@/components/ui/select'
+    29→import { toast } from 'sonner'
+    30→
+    31→interface MeasurementField {
+    32→  key: string
+    33→  label: string
+    34→  type: 'number' | 'select' | 'text'
+    35→  unit?: string
+    36→  options?: string[]
+    37→}
+    38→
+    39→interface CouponResult {
+    40→  valid: boolean
+    41→  discountAmount: number
+    42→  coupon?: {
+    43→    code: string
+    44→    discountType: string
+    45→    discountValue: number
+    46→  }
+    47→  error?: string
+    48→}
+    49→
+    50→const STEPS = [
+    51→  { label: 'Contact & Shipping', icon: Truck },
+    52→  { label: 'Measurements', icon: Scissors },
+    53→  { label: 'Review & Place', icon: CreditCard },
+    54→]
+    55→
+    56→export function CheckoutView() {
+    57→  const { items, total, updateMeasurement, clearCart } = useCartStore()
+    58→  const { user, isLoggedIn } = useAuthStore()
+    59→  const { navigate } = useNavigationStore()
+    60→
+    61→  const [currentStep, setCurrentStep] = useState(0)
+    62→  const [isSubmitting, setIsSubmitting] = useState(false)
+    63→
+    64→  // Step 1 state
+    65→  const [contactInfo, setContactInfo] = useState({
+    66→    name: user?.name || '',
+    67→    email: user?.email || '',
+    68→    phone: '',
+    69→    street: '',
+    70→    city: '',
+    71→    state: '',
+    72→    zip: '',
+    73→    country: '',
+    74→  })
+    75→  const [contactErrors, setContactErrors] = useState<Record<string, string>>({})
+    76→
+    77→  // Step 2 state
+    78→  const [measurementSchemas, setMeasurementSchemas] = useState<Record<string, MeasurementField[]>>({})
+    79→  const [schemasLoading, setSchemasLoading] = useState(false)
+    80→  const [measurementErrors, setMeasurementErrors] = useState<Record<string, string>>({})
+    81→
+    82→  // Step 3 state
+    83→  const [couponCode, setCouponCode] = useState('')
+    84→  const [couponResult, setCouponResult] = useState<CouponResult | null>(null)
+    85→  const [couponLoading, setCouponLoading] = useState(false)
+    86→
+    87→  const serviceItems = items.filter((i) => i.itemType === 'service')
+    88→  const hasServices = serviceItems.length > 0
+    89→  const effectiveSteps = hasServices ? STEPS : [STEPS[0], STEPS[2]]
+    90→  const subtotal = total()
+    91→
+    92→  // Pre-fill contact info when user data is available
+    93→  useEffect(() => {
+    94→    if (user) {
+    95→      setContactInfo((prev) => ({
+    96→        ...prev,
+    97→        name: prev.name || user.name,
+    98→        email: prev.email || user.email,
+    99→      }))
+   100→    }
+   101→  }, [user])
+   102→
+   103→  // Fetch measurement schemas for service items
+   104→  useEffect(() => {
+   105→    if (currentStep === 1 && hasServices) {
+   106→      const fetchSchemas = async () => {
+   107→        setSchemasLoading(true)
+   108→        const schemas: Record<string, MeasurementField[]> = {}
+   109→        for (const item of serviceItems) {
+   110→          try {
+   111→            const res = await fetch(`/api/services/${item.itemId}`)
+   112→            const data = await res.json()
+   113→            if (data.measurementSchema && typeof data.measurementSchema === 'object') {
+   114→              const fields: MeasurementField[] = Object.entries(data.measurementSchema).map(
+   115→                ([key, def]: [string, unknown]) => {
+   116→                  const defObj = def as Record<string, unknown>
+   117→                  return {
+   118→                    key,
+   119→                    label: (defObj.label as string) || key,
+   120→                    type: (defObj.type as 'number' | 'select' | 'text') || 'number',
+   121→                    unit: defObj.unit as string | undefined,
+   122→                    options: defObj.options as string[] | undefined,
+   123→                  }
+   124→                }
+   125→              )
+   126→              schemas[item.id] = fields
+   127→            }
+   128→          } catch {
+   129→            // Schema fetch failed, allow empty
+   130→            schemas[item.id] = []
+   131→          }
+   132→        }
+   133→        setMeasurementSchemas(schemas)
+   134→        setSchemasLoading(false)
+   135→      }
+   136→      fetchSchemas()
+   137→    }
+   138→  }, [currentStep, hasServices])
+   139→
+   140→  const validateContact = (): boolean => {
+   141→    const errors: Record<string, string> = {}
+   142→    if (!contactInfo.name.trim()) errors.name = 'Name is required'
+   143→    if (!contactInfo.email.trim()) errors.email = 'Email is required'
+   144→    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactInfo.email)) errors.email = 'Invalid email'
+   145→    if (!contactInfo.phone.trim()) errors.phone = 'Phone is required'
+   146→    if (!contactInfo.street.trim()) errors.street = 'Street address is required'
+   147→    if (!contactInfo.city.trim()) errors.city = 'City is required'
+   148→    if (!contactInfo.state.trim()) errors.state = 'State is required'
+   149→    if (!contactInfo.zip.trim()) errors.zip = 'ZIP code is required'
+   150→    if (!contactInfo.country.trim()) errors.country = 'Country is required'
+   151→    setContactErrors(errors)
+   152→    return Object.keys(errors).length === 0
+   153→  }
+   154→
+   155→  const validateMeasurements = (): boolean => {
+   156→    const errors: Record<string, string> = {}
+   157→    for (const item of serviceItems) {
+   158→      const fields = measurementSchemas[item.id] || []
+   159→      const data = item.measurementData || {}
+   160→      for (const field of fields) {
+   161→        if (!data[field.key] && data[field.key] !== 0) {
+   162→          errors[`${item.id}-${field.key}`] = `${field.label} is required`
+   163→        }
+   164→      }
+   165→    }
+   166→    setMeasurementErrors(errors)
+   167→    return Object.keys(errors).length === 0
+   168→  }
+   169→
+   170→  const handleNext = () => {
+   171→    if (currentStep === 0) {
+   172→      if (!validateContact()) {
+   173→        toast.error('Please fill in all required fields')
+   174→        return
+   175→      }
+   176→    }
+   177→    if (currentStep === 1) {
+   178→      if (!validateMeasurements()) {
+   179→        toast.error('Please fill in all measurement fields')
+   180→        return
+   181→      }
+   182→    }
+   183→    setCurrentStep((prev) => Math.min(prev + 1, effectiveSteps.length - 1))
+   184→  }
+   185→
+   186→  const handleBack = () => {
+   187→    setCurrentStep((prev) => Math.max(prev - 1, 0))
+   188→  }
+   189→
+   190→  const handleApplyCoupon = async () => {
+   191→    if (!couponCode.trim()) {
+   192→      toast.error('Please enter a coupon code')
+   193→      return
+   194→    }
+   195→    setCouponLoading(true)
+   196→    try {
+   197→      const res = await fetch('/api/coupons/validate', {
+   198→        method: 'POST',
+   199→        headers: { 'Content-Type': 'application/json' },
+   200→        body: JSON.stringify({ code: couponCode.trim(), orderValue: subtotal }),
+   201→      })
+   202→      const data = await res.json()
+   203→      if (data.valid) {
+   204→        setCouponResult(data)
+   205→        toast.success(`Coupon applied! You save $${data.discountAmount.toFixed(2)}`)
+   206→      } else {
+   207→        setCouponResult(null)
+   208→        toast.error(data.error || 'Invalid coupon code')
+   209→      }
+   210→    } catch {
+   211→      toast.error('Failed to validate coupon')
+   212→    } finally {
+   213→      setCouponLoading(false)
+   214→    }
+   215→  }
+   216→
+   217→  const discountAmount = couponResult?.valid ? couponResult.discountAmount : 0
+   218→  const grandTotal = Math.max(0, subtotal - discountAmount)
+   219→
+   220→  const handlePlaceOrder = async () => {
+   221→    if (items.length === 0) {
+   222→      toast.error('Your cart is empty')
+   223→      return
+   224→    }
+   225→    setIsSubmitting(true)
+   226→    try {
+   227→      const orderItems = items.map((item) => ({
+   228→        itemType: item.itemType,
+   229→        itemId: item.itemId,
+   230→        itemName: item.name,
+   231→        quantity: item.quantity,
+   232→        priceAtBooking: item.price,
+   233→        size: item.size || undefined,
+   234→        measurementData: item.measurementData || undefined,
+   235→        appointmentDate: item.appointmentDate || undefined,
+   236→      }))
+   237→
+   238→      const body: Record<string, unknown> = {
+   239→        customerName: contactInfo.name,
+   240→        customerEmail: contactInfo.email,
+   241→        phone: contactInfo.phone,
+   242→        shippingAddress: {
+   243→          street: contactInfo.street,
+   244→          city: contactInfo.city,
+   245→          state: contactInfo.state,
+   246→          zip: contactInfo.zip,
+   247→          country: contactInfo.country,
+   248→        },
+   249→        items: orderItems,
+   250→        couponCode: couponResult?.valid ? couponResult.coupon?.code : undefined,
+   251→      }
+   252→
+   253→      if (isLoggedIn && user) {
+   254→        body.userId = user.id
+   255→      }
+   256→
+   257→      const res = await fetch('/api/orders', {
+   258→        method: 'POST',
+   259→        headers: { 'Content-Type': 'application/json' },
+   260→        body: JSON.stringify(body),
+   261→      })
+   262→
+   263→      const data = await res.json()
+   264→
+   265→      if (!res.ok) {
+   266→        toast.error(data.error || 'Failed to place order')
+   267→        return
+   268→      }
+   269→
+   270→      clearCart()
+   271→      toast.success('Order placed successfully!')
+   272→      navigate('order-confirmation', { id: data.id })
+   273→    } catch {
+   274→      toast.error('Something went wrong. Please try again.')
+   275→    } finally {
+   276→      setIsSubmitting(false)
+   277→    }
+   278→  }
+   279→
+   280→  if (items.length === 0) {
+   281→    return (
+   282→      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
+   283→        <motion.div
+   284→          initial={{ opacity: 0, y: 20 }}
+   285→          animate={{ opacity: 1, y: 0 }}
+   286→          className="text-center"
+   287→        >
+   288→          <h2 className="font-heading text-2xl font-bold text-foreground mb-2">Your Cart is Empty</h2>
+   289→          <p className="text-muted-foreground mb-6">Add items to your cart before checking out</p>
+   290→          <Button onClick={() => navigate('home')} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+   291→            Browse Collection
+   292→          </Button>
+   293→        </motion.div>
+   294→      </div>
+   295→    )
+   296→  }
+   297→
+   298→  return (
+   299→    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+   300→      <motion.div
+   301→        initial={{ opacity: 0, y: 20 }}
+   302→        animate={{ opacity: 1, y: 0 }}
+   303→        transition={{ duration: 0.5 }}
+   304→      >
+   305→        {/* Progress Indicator */}
+   306→        <div className="flex items-center justify-center mb-10">
+   307→          {effectiveSteps.map((step, idx) => {
+   308→            const StepIcon = step.icon
+   309→            const isActive = idx === currentStep
+   310→            const isCompleted = idx < currentStep
+   311→            return (
+   312→              <div key={idx} className="flex items-center">
+   313→                <div className="flex flex-col items-center">
+   314→                  <div
+   315→                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
+   316→                      isCompleted
+   317→                        ? 'bg-accent border-accent text-accent-foreground'
+   318→                        : isActive
+   319→                        ? 'bg-primary border-primary text-primary-foreground'
+   320→                        : 'border-border text-muted-foreground'
+   321→                    }`}
+   322→                  >
+   323→                    {isCompleted ? (
+   324→                      <Check className="w-5 h-5" />
+   325→                    ) : (
+   326→                      <StepIcon className="w-5 h-5" />
+   327→                    )}
+   328→                  </div>
+   329→                  <span
+   330→                    className={`text-xs mt-1 font-medium ${
+   331→                      isActive ? 'text-primary' : 'text-muted-foreground'
+   332→                    }`}
+   333→                  >
+   334→                    {step.label}
+   335→                  </span>
+   336→                </div>
+   337→                {idx < effectiveSteps.length - 1 && (
+   338→                  <div
+   339→                    className={`w-16 sm:w-24 h-0.5 mx-2 mb-5 transition-colors ${
+   340→                      idx < currentStep ? 'bg-accent' : 'bg-border'
+   341→                    }`}
+   342→                  />
+   343→                )}
+   344→              </div>
+   345→            )
+   346→          })}
+   347→        </div>
+   348→
+   349→        <AnimatePresence mode="wait">
+   350→          {/* Step 1: Contact & Shipping */}
+   351→          {currentStep === 0 && (
+   352→            <motion.div
+   353→              key="step1"
+   354→              initial={{ opacity: 0, x: 20 }}
+   355→              animate={{ opacity: 1, x: 0 }}
+   356→              exit={{ opacity: 0, x: -20 }}
+   357→              transition={{ duration: 0.3 }}
+   358→            >
+   359→              <Card>
+   360→                <CardHeader>
+   361→                  <CardTitle className="font-heading text-xl">Contact & Shipping Information</CardTitle>
+   362→                </CardHeader>
+   363→                <CardContent className="space-y-6">
+   364→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   365→                    <div className="space-y-2">
+   366→                      <Label htmlFor="name">Full Name *</Label>
+   367→                      <Input
+   368→                        id="name"
+   369→                        value={contactInfo.name}
+   370→                        onChange={(e) => {
+   371→                          setContactInfo({ ...contactInfo, name: e.target.value })
+   372→                          if (contactErrors.name) setContactErrors({ ...contactErrors, name: '' })
+   373→                        }}
+   374→                        placeholder="Your full name"
+   375→                        className={contactErrors.name ? 'border-destructive' : ''}
+   376→                      />
+   377→                      {contactErrors.name && (
+   378→                        <p className="text-xs text-destructive">{contactErrors.name}</p>
+   379→                      )}
+   380→                    </div>
+   381→                    <div className="space-y-2">
+   382→                      <Label htmlFor="email">Email Address *</Label>
+   383→                      <Input
+   384→                        id="email"
+   385→                        type="email"
+   386→                        value={contactInfo.email}
+   387→                        onChange={(e) => {
+   388→                          setContactInfo({ ...contactInfo, email: e.target.value })
+   389→                          if (contactErrors.email) setContactErrors({ ...contactErrors, email: '' })
+   390→                        }}
+   391→                        placeholder="your@email.com"
+   392→                        className={contactErrors.email ? 'border-destructive' : ''}
+   393→                      />
+   394→                      {contactErrors.email && (
+   395→                        <p className="text-xs text-destructive">{contactErrors.email}</p>
+   396→                      )}
+   397→                    </div>
+   398→                    <div className="space-y-2 sm:col-span-2">
+   399→                      <Label htmlFor="phone">Phone Number *</Label>
+   400→                      <Input
+   401→                        id="phone"
+   402→                        value={contactInfo.phone}
+   403→                        onChange={(e) => {
+   404→                          setContactInfo({ ...contactInfo, phone: e.target.value })
+   405→                          if (contactErrors.phone) setContactErrors({ ...contactErrors, phone: '' })
+   406→                        }}
+   407→                        placeholder="+1 (555) 000-0000"
+   408→                        className={contactErrors.phone ? 'border-destructive' : ''}
+   409→                      />
+   410→                      {contactErrors.phone && (
+   411→                        <p className="text-xs text-destructive">{contactErrors.phone}</p>
+   412→                      )}
+   413→                    </div>
+   414→                  </div>
+   415→
+   416→                  <Separator />
+   417→
+   418→                  <div>
+   419→                    <h3 className="font-heading font-semibold text-foreground mb-4">Shipping Address</h3>
+   420→                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   421→                      <div className="space-y-2 sm:col-span-2">
+   422→                        <Label htmlFor="street">Street Address *</Label>
+   423→                        <Input
+   424→                          id="street"
+   425→                          value={contactInfo.street}
+   426→                          onChange={(e) => {
+   427→                            setContactInfo({ ...contactInfo, street: e.target.value })
+   428→                            if (contactErrors.street) setContactErrors({ ...contactErrors, street: '' })
+   429→                          }}
+   430→                          placeholder="123 Main Street"
+   431→                          className={contactErrors.street ? 'border-destructive' : ''}
+   432→                        />
+   433→                        {contactErrors.street && (
+   434→                          <p className="text-xs text-destructive">{contactErrors.street}</p>
+   435→                        )}
+   436→                      </div>
+   437→                      <div className="space-y-2">
+   438→                        <Label htmlFor="city">City *</Label>
+   439→                        <Input
+   440→                          id="city"
+   441→                          value={contactInfo.city}
+   442→                          onChange={(e) => {
+   443→                            setContactInfo({ ...contactInfo, city: e.target.value })
+   444→                            if (contactErrors.city) setContactErrors({ ...contactErrors, city: '' })
+   445→                          }}
+   446→                          placeholder="City"
+   447→                          className={contactErrors.city ? 'border-destructive' : ''}
+   448→                        />
+   449→                        {contactErrors.city && (
+   450→                          <p className="text-xs text-destructive">{contactErrors.city}</p>
+   451→                        )}
+   452→                      </div>
+   453→                      <div className="space-y-2">
+   454→                        <Label htmlFor="state">State / Province *</Label>
+   455→                        <Input
+   456→                          id="state"
+   457→                          value={contactInfo.state}
+   458→                          onChange={(e) => {
+   459→                            setContactInfo({ ...contactInfo, state: e.target.value })
+   460→                            if (contactErrors.state) setContactErrors({ ...contactErrors, state: '' })
+   461→                          }}
+   462→                          placeholder="State"
+   463→                          className={contactErrors.state ? 'border-destructive' : ''}
+   464→                        />
+   465→                        {contactErrors.state && (
+   466→                          <p className="text-xs text-destructive">{contactErrors.state}</p>
+   467→                        )}
+   468→                      </div>
+   469→                      <div className="space-y-2">
+   470→                        <Label htmlFor="zip">ZIP / Postal Code *</Label>
+   471→                        <Input
+   472→                          id="zip"
+   473→                          value={contactInfo.zip}
+   474→                          onChange={(e) => {
+   475→                            setContactInfo({ ...contactInfo, zip: e.target.value })
+   476→                            if (contactErrors.zip) setContactErrors({ ...contactErrors, zip: '' })
+   477→                          }}
+   478→                          placeholder="12345"
+   479→                          className={contactErrors.zip ? 'border-destructive' : ''}
+   480→                        />
+   481→                        {contactErrors.zip && (
+   482→                          <p className="text-xs text-destructive">{contactErrors.zip}</p>
+   483→                        )}
+   484→                      </div>
+   485→                      <div className="space-y-2">
+   486→                        <Label htmlFor="country">Country *</Label>
+   487→                        <Input
+   488→                          id="country"
+   489→                          value={contactInfo.country}
+   490→                          onChange={(e) => {
+   491→                            setContactInfo({ ...contactInfo, country: e.target.value })
+   492→                            if (contactErrors.country) setContactErrors({ ...contactErrors, country: '' })
+   493→                          }}
+   494→                          placeholder="Country"
+   495→                          className={contactErrors.country ? 'border-destructive' : ''}
+   496→                        />
+   497→                        {contactErrors.country && (
+   498→                          <p className="text-xs text-destructive">{contactErrors.country}</p>
+   499→                        )}
+   500→                      </div>
+   501→                    </div>
+   502→                  </div>
+   503→                </CardContent>
+   504→              </Card>
+   505→            </motion.div>
+   506→          )}
+   507→
+   508→          {/* Step 2: Measurements (only if cart has service items) */}
+   509→          {currentStep === 1 && hasServices && (
+   510→            <motion.div
+   511→              key="step2"
+   512→              initial={{ opacity: 0, x: 20 }}
+   513→              animate={{ opacity: 1, x: 0 }}
+   514→              exit={{ opacity: 0, x: -20 }}
+   515→              transition={{ duration: 0.3 }}
+   516→            >
+   517→              <Card>
+   518→                <CardHeader>
+   519→                  <CardTitle className="font-heading text-xl">Measurement Details</CardTitle>
+   520→                </CardHeader>
+   521→                <CardContent className="space-y-6">
+   522→                  {schemasLoading ? (
+   523→                    <div className="flex items-center justify-center py-12">
+   524→                      <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
+   525→                    </div>
+   526→                  ) : (
+   527→                    serviceItems.map((item) => {
+   528→                      const fields = measurementSchemas[item.id] || []
+   529→                      const data = item.measurementData || {}
+   530→                      if (fields.length === 0) {
+   531→                        return (
+   532→                          <div key={item.id} className="p-4 rounded-lg bg-secondary/50">
+   533→                            <h4 className="font-heading font-semibold">{item.name}</h4>
+   534→                            <p className="text-sm text-muted-foreground mt-1">
+   535→                              No measurements required for this service.
+   536→                            </p>
+   537→                          </div>
+   538→                        )
+   539→                      }
+   540→                      return (
+   541→                        <div key={item.id} className="space-y-4">
+   542→                          <div className="flex items-center gap-2">
+   543→                            <Scissors className="w-4 h-4 text-accent" />
+   544→                            <h4 className="font-heading font-semibold">{item.name}</h4>
+   545→                          </div>
+   546→                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   547→                            {fields.map((field) => (
+   548→                              <div key={field.key} className="space-y-2">
+   549→                                <Label>
+   550→                                  {field.label}
+   551→                                  {field.unit && (
+   552→                                    <span className="text-muted-foreground ml-1">({field.unit})</span>
+   553→                                  )}
+   554→                                </Label>
+   555→                                {field.type === 'select' && field.options ? (
+   556→                                  <Select
+   557→                                    value={(data[field.key] as string) || ''}
+   558→                                    onValueChange={(val) => {
+   559→                                      updateMeasurement(item.id, { ...data, [field.key]: val })
+   560→                                      if (measurementErrors[`${item.id}-${field.key}`]) {
+   561→                                        const newErrors = { ...measurementErrors }
+   562→                                        delete newErrors[`${item.id}-${field.key}`]
+   563→                                        setMeasurementErrors(newErrors)
+   564→                                      }
+   565→                                    }}
+   566→                                  >
+   567→                                    <SelectTrigger
+   568→                                      className={
+   569→                                        measurementErrors[`${item.id}-${field.key}`]
+   570→                                          ? 'border-destructive'
+   571→                                          : ''
+   572→                                      }
+   573→                                    >
+   574→                                      <SelectValue placeholder={`Select ${field.label}`} />
+   575→                                    </SelectTrigger>
+   576→                                    <SelectContent>
+   577→                                      {field.options.map((opt) => (
+   578→                                        <SelectItem key={opt} value={opt}>
+   579→                                          {opt}
+   580→                                        </SelectItem>
+   581→                                      ))}
+   582→                                    </SelectContent>
+   583→                                  </Select>
+   584→                                ) : (
+   585→                                  <Input
+   586→                                    type={field.type === 'number' ? 'number' : 'text'}
+   587→                                    value={data[field.key] ?? ''}
+   588→                                    onChange={(e) => {
+   589→                                      const val =
+   590→                                        field.type === 'number'
+   591→                                          ? e.target.value === ''
+   592→                                            ? ''
+   593→                                            : parseFloat(e.target.value)
+   594→                                          : e.target.value
+   595→                                      updateMeasurement(item.id, { ...data, [field.key]: val })
+   596→                                      if (measurementErrors[`${item.id}-${field.key}`]) {
+   597→                                        const newErrors = { ...measurementErrors }
+   598→                                        delete newErrors[`${item.id}-${field.key}`]
+   599→                                        setMeasurementErrors(newErrors)
+   600→                                      }
+   601→                                    }}
+   602→                                    placeholder={`Enter ${field.label}`}
+   603→                                    className={
+   604→                                      measurementErrors[`${item.id}-${field.key}`]
+   605→                                        ? 'border-destructive'
+   606→                                        : ''
+   607→                                    }
+   608→                                  />
+   609→                                )}
+   610→                                {measurementErrors[`${item.id}-${field.key}`] && (
+   611→                                  <p className="text-xs text-destructive">
+   612→                                    {measurementErrors[`${item.id}-${field.key}`]}
+   613→                                  </p>
+   614→                                )}
+   615→                              </div>
+   616→                            ))}
+   617→                          </div>
+   618→                          <Separator />
+   619→                        </div>
+   620→                      )
+   621→                    })
+   622→                  )}
+   623→
+   624→                  {isLoggedIn && (
+   625→                    <div className="p-3 rounded-lg bg-accent/10 border border-accent/20">
+   626→                      <p className="text-sm text-foreground">
+   627→                        <ShieldCheck className="w-4 h-4 inline mr-1 text-accent" />
+   628→                        Your measurements will be saved to your profile for future orders.
+   629→                      </p>
+   630→                    </div>
+   631→                  )}
+   632→                </CardContent>
+   633→              </Card>
+   634→            </motion.div>
+   635→          )}
+   636→
+   637→          {/* Step 3 (or Step 2 if no services): Review & Place Order */}
+   638→          {(currentStep === (hasServices ? 2 : 1)) && (
+   639→            <motion.div
+   640→              key="step3"
+   641→              initial={{ opacity: 0, x: 20 }}
+   642→              animate={{ opacity: 1, x: 0 }}
+   643→              exit={{ opacity: 0, x: -20 }}
+   644→              transition={{ duration: 0.3 }}
+   645→            >
+   646→              <Card>
+   647→                <CardHeader>
+   648→                  <CardTitle className="font-heading text-xl">Review & Place Order</CardTitle>
+   649→                </CardHeader>
+   650→                <CardContent className="space-y-6">
+   651→                  {/* COD Notice */}
+   652→                  <div className="p-4 rounded-lg bg-accent/10 border border-accent/20 flex items-center gap-3">
+   653→                    <Banknote className="w-6 h-6 text-accent flex-shrink-0" />
+   654→                    <div>
+   655→                      <p className="font-semibold text-sm">Cash on Delivery</p>
+   656→                      <p className="text-xs text-muted-foreground">
+   657→                        You will pay upon delivery. No online payment required.
+   658→                      </p>
+   659→                    </div>
+   660→                    <Badge className="bg-accent text-accent-foreground ml-auto">COD</Badge>
+   661→                  </div>
+   662→
+   663→                  {/* Order Items */}
+   664→                  <div className="space-y-3">
+   665→                    <h4 className="font-heading font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+   666→                      Order Items
+   667→                    </h4>
+   668→                    {items.map((item) => (
+   669→                      <div
+   670→                        key={item.id}
+   671→                        className="flex items-center justify-between p-3 rounded-lg bg-secondary/30"
+   672→                      >
+   673→                        <div className="flex items-center gap-3">
+   674→                          <div className="w-10 h-10 rounded bg-secondary flex items-center justify-center">
+   675→                            {item.itemType === 'service' ? (
+   676→                              <Scissors className="w-4 h-4 text-muted-foreground" />
+   677→                            ) : (
+   678→                              <span className="text-xs text-muted-foreground">×{item.quantity}</span>
+   679→                            )}
+   680→                          </div>
+   681→                          <div>
+   682→                            <p className="text-sm font-medium">{item.name}</p>
+   683→                            <div className="flex items-center gap-2">
+   684→                              <Badge variant="secondary" className="text-xs">
+   685→                                {item.itemType}
+   686→                              </Badge>
+   687→                              {item.size && (
+   688→                                <span className="text-xs text-muted-foreground">Size: {item.size}</span>
+   689→                              )}
+   690→                              {item.color && (
+   691→                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+   692→                                  {item.colorHex ? (
+   693→                                    <span
+   694→                                      className="inline-block h-3 w-3 rounded-full border border-border/50"
+   695→                                      style={{ backgroundColor: item.colorHex }}
+   696→                                    />
+   697→                                  ) : null}
+   698→                                  {item.color}
+   699→                                </span>
+   700→                              )}
+   701→                              <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
+   702→                            </div>
+   703→                          </div>
+   704→                        </div>
+   705→                        <p className="font-heading font-bold">${(item.price * item.quantity).toFixed(2)}</p>
+   706→                      </div>
+   707→                    ))}
+   708→                  </div>
+   709→
+   710→                  <Separator />
+   711→
+   712→                  {/* Shipping Address */}
+   713→                  <div className="space-y-2">
+   714→                    <h4 className="font-heading font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+   715→                      Shipping Address
+   716→                    </h4>
+   717→                    <p className="text-sm text-foreground">
+   718→                      {contactInfo.name}<br />
+   719→                      {contactInfo.street}<br />
+   720→                      {contactInfo.city}, {contactInfo.state} {contactInfo.zip}<br />
+   721→                      {contactInfo.country}
+   722→                    </p>
+   723→                    <p className="text-sm text-muted-foreground">{contactInfo.email} · {contactInfo.phone}</p>
+   724→                  </div>
+   725→
+   726→                  <Separator />
+   727→
+   728→                  {/* Coupon */}
+   729→                  <div className="space-y-2">
+   730→                    <h4 className="font-heading font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+   731→                      Coupon Code
+   732→                    </h4>
+   733→                    <div className="flex gap-2">
+   734→                      <Input
+   735→                        placeholder="Enter coupon code"
+   736→                        value={couponCode}
+   737→                        onChange={(e) => {
+   738→                          setCouponCode(e.target.value)
+   739→                          if (couponResult) setCouponResult(null)
+   740→                        }}
+   741→                        disabled={couponResult?.valid}
+   742→                      />
+   743→                      {couponResult?.valid ? (
+   744→                        <Button
+   745→                          variant="outline"
+   746→                          onClick={() => {
+   747→                            setCouponResult(null)
+   748→                            setCouponCode('')
+   749→                          }}
+   750→                        >
+   751→                          Remove
+   752→                        </Button>
+   753→                      ) : (
+   754→                        <Button
+   755→                          variant="outline"
+   756→                          onClick={handleApplyCoupon}
+   757→                          disabled={couponLoading}
+   758→                        >
+   759→                          {couponLoading ? '...' : 'Apply'}
+   760→                        </Button>
+   761→                      )}
+   762→                    </div>
+   763→                    {couponResult?.valid && (
+   764→                      <p className="text-xs text-green-600">
+   765→                        Coupon &quot;{couponResult.coupon?.code}&quot; applied! Saving $
+   766→                        {discountAmount.toFixed(2)}
+   767→                      </p>
+   768→                    )}
+   769→                  </div>
+   770→
+   771→                  <Separator />
+   772→
+   773→                  {/* Totals */}
+   774→                  <div className="space-y-2">
+   775→                    <div className="flex justify-between text-sm">
+   776→                      <span className="text-muted-foreground">Subtotal</span>
+   777→                      <span>${subtotal.toFixed(2)}</span>
+   778→                    </div>
+   779→                    {discountAmount > 0 && (
+   780→                      <div className="flex justify-between text-sm text-green-600">
+   781→                        <span>Discount</span>
+   782→                        <span>-${discountAmount.toFixed(2)}</span>
+   783→                      </div>
+   784→                    )}
+   785→                    <div className="flex justify-between text-sm">
+   786→                      <span className="text-muted-foreground">Shipping</span>
+   787→                      <span className="text-green-600">Free</span>
+   788→                    </div>
+   789→                    <Separator />
+   790→                    <div className="flex justify-between font-heading font-bold text-lg">
+   791→                      <span>Grand Total</span>
+   792→                      <span>${grandTotal.toFixed(2)}</span>
+   793→                    </div>
+   794→                  </div>
+   795→
+   796→                  {/* Place Order Button */}
+   797→                  <Button
+   798→                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-base"
+   799→                    size="lg"
+   800→                    onClick={handlePlaceOrder}
+   801→                    disabled={isSubmitting}
+   802→                  >
+   803→                    {isSubmitting ? (
+   804→                      <div className="flex items-center gap-2">
+   805→                        <div className="animate-spin w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
+   806→                        Placing Order...
+   807→                      </div>
+   808→                    ) : (
+   809→                      <>
+   810→                        <Banknote className="w-5 h-5 mr-2" />
+   811→                        Place Order (Cash on Delivery)
+   812→                      </>
+   813→                    )}
+   814→                  </Button>
+   815→                  <p className="text-center text-xs text-muted-foreground">
+   816→                    You will pay upon delivery. No online payment required.
+   817→                  </p>
+   818→                </CardContent>
+   819→              </Card>
+   820→            </motion.div>
+   821→          )}
+   822→        </AnimatePresence>
+   823→
+   824→        {/* Navigation Buttons */}
+   825→        <div className="flex justify-between mt-6">
+   826→          {currentStep > 0 ? (
+   827→            <Button variant="outline" onClick={handleBack}>
+   828→              <ArrowLeft className="w-4 h-4 mr-1" />
+   829→              Back
+   830→            </Button>
+   831→          ) : (
+   832→            <Button variant="ghost" onClick={() => navigate('cart')}>
+   833→              <ArrowLeft className="w-4 h-4 mr-1" />
+   834→              Back to Cart
+   835→            </Button>
+   836→          )}
+   837→          {currentStep < effectiveSteps.length - 1 && (
+   838→            <Button
+   839→              onClick={handleNext}
+   840→              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+   841→            >
+   842→              Next
+   843→              <ArrowRight className="w-4 h-4 ml-1" />
+   844→            </Button>
+   845→          )}
+   846→        </div>
+   847→      </motion.div>
+   848→    </div>
+   849→  )
+   850→}
+   851→

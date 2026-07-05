@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { format } from 'date-fns'
 
 import { useAuthStore } from '@/lib/store'
+import { formatPrice } from '@/lib/utils'
 import { AdminNav } from '@/components/store/admin-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -279,11 +280,11 @@ export function AdminCouponsView() {
                     <TableCell className="text-accent font-semibold">
                       {coupon.discountType === 'percent'
                         ? `${coupon.discountValue}%`
-                        : `$${coupon.discountValue.toFixed(2)}`}
+                        : formatPrice(coupon.discountValue)}
                     </TableCell>
                     <TableCell>
                       {coupon.minOrderValue
-                        ? `$${coupon.minOrderValue.toFixed(2)}`
+                        ? formatPrice(coupon.minOrderValue)
                         : '—'}
                     </TableCell>
                     <TableCell>

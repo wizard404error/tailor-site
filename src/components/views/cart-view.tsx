@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
+import { formatPrice } from '@/lib/utils'
 
 interface CouponResult {
   valid: boolean
@@ -46,7 +47,7 @@ export function CartView() {
       const data = await res.json()
       if (data.valid) {
         setCouponResult(data)
-        toast.success(`Coupon applied! You save $${data.discountAmount.toFixed(2)}`)
+        toast.success(`Coupon applied! You save ${formatPrice(data.discountAmount)}`)
       } else {
         setCouponResult(null)
         toast.error(data.error || 'Invalid coupon code')
@@ -223,10 +224,10 @@ export function CartView() {
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-muted-foreground">
-                                ${item.price.toFixed(2)} each
+                                {formatPrice(item.price)} each
                               </p>
                               <p className="font-heading font-bold text-foreground">
-                                ${(item.price * item.quantity).toFixed(2)}
+                                {formatPrice(item.price * item.quantity)}
                               </p>
                             </div>
                           </div>
@@ -249,18 +250,18 @@ export function CartView() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal ({items.length} items)</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>{formatPrice(subtotal)}</span>
                   </div>
                   {couponResult?.valid && (
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Discount ({couponResult.coupon?.code})</span>
-                      <span>-${discountAmount.toFixed(2)}</span>
+                      <span>-{formatPrice(discountAmount)}</span>
                     </div>
                   )}
                   <Separator />
                   <div className="flex justify-between font-heading font-bold text-lg">
                     <span>Total</span>
-                    <span>${grandTotal.toFixed(2)}</span>
+                    <span>{formatPrice(grandTotal)}</span>
                   </div>
                 </div>
 
@@ -289,7 +290,7 @@ export function CartView() {
                   </div>
                   {couponResult?.valid && (
                     <p className="text-xs text-green-600">
-                      Coupon applied! Saving ${discountAmount.toFixed(2)}
+                      Coupon applied! Saving {formatPrice(discountAmount)}
                     </p>
                   )}
                 </div>

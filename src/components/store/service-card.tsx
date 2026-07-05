@@ -5,6 +5,7 @@ import { Calendar, Clock, ShoppingBag, Ruler } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigationStore, useCartStore } from '@/lib/store';
+import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface ServiceCardProps {
@@ -101,7 +102,7 @@ export function ServiceCard({ service }: ServiceCardProps) {
 
           <div className="flex items-center justify-between">
             <span className="text-lg font-bold text-accent">
-              From ${service.basePrice.toFixed(2)}
+              From {formatPrice(service.basePrice)}
             </span>
             <div className="flex items-center gap-1 text-muted-foreground text-xs">
               <Clock className="h-3.5 w-3.5" />

@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigationStore, useCartStore } from '@/lib/store';
 import { toast } from 'sonner';
+import { formatPrice } from '@/lib/utils';
 
 interface Service {
   id: string;
@@ -220,7 +221,7 @@ export function ServiceDetailView() {
 
             <div className="mt-3 flex items-center gap-4">
               <span className="text-2xl font-bold text-accent">
-                From ${service.basePrice.toFixed(2)}
+                From {formatPrice(service.basePrice)}
               </span>
               <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
                 <Clock className="h-4 w-4" />

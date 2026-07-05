@@ -13,6 +13,7 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet';
 import { useCartStore, useNavigationStore } from '@/lib/store';
+import { formatPrice } from '@/lib/utils';
 
 export function CartDrawer() {
   const { items, isOpen, setCartOpen, removeItem, updateQuantity, total } =
@@ -175,7 +176,7 @@ export function CartDrawer() {
                       </div>
 
                       <span className="text-sm font-semibold text-accent">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        {formatPrice(item.price * item.quantity)}
                       </span>
                     </div>
 
@@ -209,7 +210,7 @@ export function CartDrawer() {
               <div className="flex items-center justify-between w-full">
                 <span className="text-sm text-muted-foreground">Total</span>
                 <span className="text-xl font-bold font-heading text-accent">
-                  ${cartTotal.toFixed(2)}
+                  {formatPrice(cartTotal)}
                 </span>
               </div>
               <div className="flex flex-col gap-2 w-full">

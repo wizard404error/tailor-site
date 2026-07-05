@@ -14,6 +14,7 @@ import {
   Calendar,
 } from 'lucide-react'
 import { useNavigationStore } from '@/lib/store'
+import { formatPrice } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -296,7 +297,7 @@ export function OrderTrackingView() {
                         </div>
                       </div>
                       <p className="font-heading font-bold text-sm">
-                        ${(item.priceAtBooking * item.quantity).toFixed(2)}
+                        {formatPrice(item.priceAtBooking * item.quantity)}
                       </p>
                     </div>
 
@@ -333,12 +334,12 @@ export function OrderTrackingView() {
                   {order.discountAmount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Discount{order.couponCode ? ` (${order.couponCode})` : ''}</span>
-                      <span>-${order.discountAmount.toFixed(2)}</span>
+                      <span>-{formatPrice(order.discountAmount)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-heading font-bold text-lg">
                     <span>Total</span>
-                    <span>${order.total.toFixed(2)}</span>
+                    <span>{formatPrice(order.total)}</span>
                   </div>
                 </div>
               </CardContent>

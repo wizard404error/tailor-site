@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { formatPrice } from '@/lib/utils'
 
 interface MeasurementField {
   key: string
@@ -202,7 +203,7 @@ export function CheckoutView() {
       const data = await res.json()
       if (data.valid) {
         setCouponResult(data)
-        toast.success(`Coupon applied! You save $${data.discountAmount.toFixed(2)}`)
+        toast.success(`Coupon applied! You save ${formatPrice(data.discountAmount)}`)
       } else {
         setCouponResult(null)
         toast.error(data.error || 'Invalid coupon code')
@@ -702,7 +703,7 @@ export function CheckoutView() {
                             </div>
                           </div>
                         </div>
-                        <p className="font-heading font-bold">${(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="font-heading font-bold">{formatPrice(item.price * item.quantity)}</p>
                       </div>
                     ))}
                   </div>
@@ -774,12 +775,12 @@ export function CheckoutView() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span>${subtotal.toFixed(2)}</span>
+                      <span>{formatPrice(subtotal)}</span>
                     </div>
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>Discount</span>
-                        <span>-${discountAmount.toFixed(2)}</span>
+                        <span>-{formatPrice(discountAmount)}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-sm">
@@ -789,7 +790,7 @@ export function CheckoutView() {
                     <Separator />
                     <div className="flex justify-between font-heading font-bold text-lg">
                       <span>Grand Total</span>
-                      <span>${grandTotal.toFixed(2)}</span>
+                      <span>{formatPrice(grandTotal)}</span>
                     </div>
                   </div>
 

@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ProductCard } from '@/components/store/product-card';
 import { useNavigationStore, useCartStore } from '@/lib/store';
 import { toast } from 'sonner';
+import { formatPrice } from '@/lib/utils';
 
 interface ColorOption {
   name: string;
@@ -281,7 +282,7 @@ export function ProductDetailView() {
             {/* Price */}
             <div className="mt-3">
               <span className="text-2xl font-bold text-accent">
-                ${product.price.toFixed(2)}
+                {formatPrice(product.price)}
               </span>
             </div>
 

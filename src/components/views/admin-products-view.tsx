@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Loader2, ImageOff, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '@/lib/store'
+import { formatPrice } from '@/lib/utils'
 import { AdminNav } from '@/components/store/admin-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -409,7 +410,7 @@ export function AdminProductsView() {
                         )}
                       </TableCell>
                       <TableCell className="text-accent font-semibold">
-                        ${product.price.toFixed(2)}
+                        {formatPrice(product.price)}
                       </TableCell>
                       <TableCell>
                         <Badge variant={product.stock > 0 ? 'default' : 'destructive'}>

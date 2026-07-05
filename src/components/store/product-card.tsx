@@ -5,6 +5,7 @@ import { ShoppingBag, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigationStore, useCartStore } from '@/lib/store';
+import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface ColorOption {
@@ -131,7 +132,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
           <div className="flex items-center justify-between">
             <span className="text-lg font-bold text-accent">
-              ${product.price.toFixed(2)}
+              {formatPrice(product.price)}
             </span>
           </div>
 

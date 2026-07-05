@@ -14,6 +14,7 @@ import {
   ShoppingBag,
 } from 'lucide-react'
 import { useAuthStore, useNavigationStore } from '@/lib/store'
+import { formatPrice } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -212,7 +213,7 @@ export function AccountOrdersView() {
                               {formatStatus(order.status)}
                             </Badge>
                             <span className="font-heading font-bold text-sm sm:text-base">
-                              ${order.total.toFixed(2)}
+                              {formatPrice(order.total)}
                             </span>
                             {isExpanded ? (
                               <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -262,7 +263,7 @@ export function AccountOrdersView() {
                                         </div>
                                       </div>
                                       <p className="font-heading font-bold text-sm">
-                                        ${(item.priceAtBooking * item.quantity).toFixed(2)}
+                                        {formatPrice(item.priceAtBooking * item.quantity)}
                                       </p>
                                     </div>
 
@@ -337,12 +338,12 @@ export function AccountOrdersView() {
                                       Discount
                                       {order.couponCode ? ` (${order.couponCode})` : ''}
                                     </span>
-                                    <span>-${order.discountAmount.toFixed(2)}</span>
+                                    <span>-{formatPrice(order.discountAmount)}</span>
                                   </div>
                                 )}
                                 <div className="flex justify-between font-heading font-bold">
                                   <span>Total</span>
-                                  <span>${order.total.toFixed(2)}</span>
+                                  <span>{formatPrice(order.total)}</span>
                                 </div>
                               </div>
 

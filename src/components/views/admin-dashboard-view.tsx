@@ -145,11 +145,11 @@ const sectionVariants = {
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en', {
     style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    currency: 'TND',
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
   }).format(value)
 }
 
@@ -316,7 +316,7 @@ export function AdminDashboardView() {
       ['Metric', 'Value'],
       ['Total Revenue', data.totalRevenue.toString()],
       ['Total Orders', data.totalOrders.toString()],
-      ['Average Order Value', data.avgOrderValue.toFixed(2)],
+      ['Average Order Value', formatCurrency(data.avgOrderValue)],
       ['Low Stock Products', data.lowStockCount.toString()],
       ['Pending Measurements', data.pendingMeasurements.toString()],
       ['Repeat Customer Rate', data.customerStats.repeatRate.toFixed(1) + '%'],

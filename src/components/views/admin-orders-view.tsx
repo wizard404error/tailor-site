@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { format } from 'date-fns'
 
 import { useAuthStore } from '@/lib/store'
+import { formatPrice } from '@/lib/utils'
 import { AdminNav } from '@/components/store/admin-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -311,7 +312,7 @@ export function AdminOrdersView() {
                     <TableCell className="text-sm">{order.customerEmail}</TableCell>
                     <TableCell className="text-sm">{order.phone || '—'}</TableCell>
                     <TableCell className="text-accent font-semibold">
-                      ${order.total.toFixed(2)}
+                      {formatPrice(order.total)}
                     </TableCell>
                     <TableCell>
                       <Badge className={statusBadgeClass[order.status] || ''} variant="secondary">
@@ -399,7 +400,7 @@ export function AdminOrdersView() {
                           </Badge>
                         </div>
                         <span className="text-accent font-semibold">
-                          ${item.priceAtBooking.toFixed(2)} × {item.quantity}
+                          {formatPrice(item.priceAtBooking)} × {item.quantity}
                         </span>
                       </div>
                       {item.size && (
@@ -438,7 +439,7 @@ export function AdminOrdersView() {
                 {selectedOrder.discountAmount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount</span>
-                    <span className="text-green-600">-${selectedOrder.discountAmount.toFixed(2)}</span>
+                    <span className="text-green-600">-{formatPrice(selectedOrder.discountAmount)}</span>
                   </div>
                 )}
                 {selectedOrder.couponCode && (
@@ -449,7 +450,7 @@ export function AdminOrdersView() {
                 )}
                 <div className="flex justify-between text-lg font-semibold">
                   <span>Total</span>
-                  <span className="text-accent">${selectedOrder.total.toFixed(2)}</span>
+                  <span className="text-accent">{formatPrice(selectedOrder.total)}</span>
                 </div>
               </div>
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { CheckCircle, Package, MapPin, Mail, Banknote, ArrowRight, Loader2 } from 'lucide-react'
 import { useNavigationStore } from '@/lib/store'
+import { formatPrice } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -180,7 +181,7 @@ export function OrderConfirmationView() {
                     </div>
                   </div>
                   <p className="font-heading font-bold text-sm">
-                    ${(item.priceAtBooking * item.quantity).toFixed(2)}
+                    {formatPrice(item.priceAtBooking * item.quantity)}
                   </p>
                 </div>
               ))}
@@ -192,13 +193,13 @@ export function OrderConfirmationView() {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>
-                  ${order.items.reduce((s, i) => s + i.priceAtBooking * i.quantity, 0).toFixed(2)}
+                  {formatPrice(order.items.reduce((s, i) => s + i.priceAtBooking * i.quantity, 0))}
                 </span>
               </div>
               {order.discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Discount{order.couponCode ? ` (${order.couponCode})` : ''}</span>
-                  <span>-${order.discountAmount.toFixed(2)}</span>
+                  <span>-{formatPrice(order.discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm">
@@ -208,7 +209,7 @@ export function OrderConfirmationView() {
               <Separator />
               <div className="flex justify-between font-heading font-bold text-lg">
                 <span>Total</span>
-                <span>${order.total.toFixed(2)}</span>
+                <span>{formatPrice(order.total)}</span>
               </div>
             </div>
           </CardContent>
