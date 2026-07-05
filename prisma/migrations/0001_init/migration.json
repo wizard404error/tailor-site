@@ -1,0 +1,8 @@
+{
+  "version": "6.11.1",
+  "steps": [],
+  "checksum": "",
+  "datasource": "postgresql",
+  "database": "postgres",
+  "schema": "public"
+}
